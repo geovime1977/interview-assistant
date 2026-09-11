@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Assistant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 40px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #64748b;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── Lang toggle ── */
+    .lang-toggle {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+      max-width: 860px;
+      margin-bottom: 10px;
+    }
+    .lang-btn {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #64748b;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .lang-btn.active {
+      background: #1d4ed8;
+      border-color: #2563eb;
+      color: #fff;
+    }
+    .lang-hint {
+      font-size: 0.75rem;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      margin-left: 4px;
+    }
+
+    /* ── Input row: mic + text ── */
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 860px;
+      margin-bottom: 8px;
+    }
+
+    #mic-btn {
+      flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 2px solid #334155;
+      background: #1e293b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #mic-btn:hover { background: #273549; border-color: #475569; }
+    #mic-btn.listening {
+      background: #7f1d1d;
+      border-color: #ef4444;
+      animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(239,68,68,.5); }
+      70%  { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+      100% { box-shadow: 0 0 0 0   rgba(239,68,68,0);  }
+    }
+
+    #fallback-input {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: #e2e8f0;
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #fallback-input:focus { border-color: #3b82f6; }
+    #fallback-input::placeholder { color: #475569; }
+
+    #send-btn {
+      flex-shrink: 0;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      color: #fff;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #send-btn:hover { background: #1d4ed8; }
+    #send-btn:disabled { background: #1e3a5f; cursor: default; }
+
+    /* ── Transcription bar ── */
+    #transcript-bar {
+      width: 100%;
+      max-width: 860px;
+      min-height: 36px;
+      padding: 8px 14px;
+      background: #161b27;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      font-size: 0.83rem;
+      color: #64748b;
+      margin-bottom: 6px;
+      line-height: 1.4;
+      transition: color 0.2s;
+    }
+    #transcript-bar.active { color: #94a3b8; border-color: #334155; }
+    #transcript-bar.final  { color: #cbd5e1; border-color: #475569; }
+
+    /* ── Status ── */
+    #status {
+      font-size: 0.78rem;
+      color: #475569;
+      min-height: 1.1em;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .spinner {
+      width: 11px; height: 11px;
+      border: 2px solid #334155;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Two-column layout ── */
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    .col {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 200px;
+    }
+
+    /* EN column gets subtle highlight — it's what the user reads aloud */
+    .col.en-col {
+      border-color: #1d4ed8;
+      background: #1a2640;
+    }
+    .col.en-col .col-header { color: #60a5fa; }
+
+    .col-header {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #4ade80;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .col-header .badge {
+      font-size: 0.65rem;
+      background: #0f172a;
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: #64748b;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+
+    .section-content {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #94a3b8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 24px;
+    }
+
+    .answer-content {
+      font-size: 0.95rem;
+      line-height: 1.75;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 60px;
+    }
+
+    /* EN answer is most important — make it stand out */
+    .col.en-col .answer-content {
+      font-size: 1rem;
+      color: #f1f5f9;
+    }
+
+    .divider { border: none; border-top: 1px solid #334155; margin: 4px 0; }
+
+    /* ── Hint ── */
+    .hint {
+      font-size: 0.72rem;
+      color: #1d4ed8;
+      background: #0f1e35;
+      border: 1px solid #1e3a5f;
+      border-radius: 6px;
+      padding: 4px 10px;
+      margin-top: 4px;
+    }
+
+    /* ── Empty state ── */
+    .empty {
+      font-size: 0.83rem;
+      color: #334155;
+      text-align: center;
+      padding: 24px 0;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 600px) {
+      .columns { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎙️ Interview Assistant</h1>
+</div>
+
+<!-- Language toggle -->
+<div class="lang-toggle">
+  <button class="lang-btn" id="lang-en" onclick="setLang('en-US')">🇺🇸 Entrevista em inglês</button>
+  <button class="lang-btn" id="lang-pt" onclick="setLang('pt-BR')">🇧🇷 Entrevista em português</button>
+  <span class="lang-hint" id="lang-hint">← selecione o idioma do entrevistador</span>
+</div>
+
+<!-- Input row -->
+<div class="input-row">
+  <button id="mic-btn" title="Clique para ouvir a pergunta">🎙️</button>
+  <input id="fallback-input" type="text"
+         placeholder="Ou digite a pergunta aqui… (EN ou PT)" />
+  <button id="send-btn">Enviar →</button>
+</div>
+
+<!-- Transcription -->
+<div id="transcript-bar">Pressione 🎙️ para começar a ouvir a pergunta do entrevistador…</div>
+
+<!-- Status -->
+<div id="status"></div>
+
+<!-- Two columns -->
+<div class="columns">
+
+  <!-- PT column -->
+  <div class="col pt-col">
+    <div class="col-header">🇧🇷 Português <span class="badge">referência</span></div>
+    <div>
+      <div class="section-label">Pergunta</div>
+      <div class="section-content" id="pt-q"><div class="empty">Aguardando pergunta…</div></div>
+    </div>
+    <hr class="divider" />
+    <div>
+      <div class="section-label">Resposta sugerida</div>
+      <div class="answer-content" id="pt-a"></div>
+    </div>
+  </div>
+
+  <!-- EN column -->
+  <div class="col en-col">
+    <div class="col-header">🇺🇸 English <span class="badge">leia em voz alta</span></div>
+    <div>
+      <div class="section-label">Question</div>
+      <div class="section-content" id="en-q"></div>
+    </div>
+    <hr class="divider" />
+    <div>
+      <div class="section-label">Suggested answer</div>
+      <div class="answer-content" id="en-a"></div>
+    </div>
+    <div class="hint" id="en-hint" style="display:none">
+      ↑ Leia o texto acima em voz alta para responder em inglês
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const micBtn        = document.getElementById('mic-btn');
+  const fallbackInput = document.getElementById('fallback-input');
+  const sendBtn       = document.getElementById('send-btn');
+  const transcriptBar = document.getElementById('transcript-bar');
+  const statusEl      = document.getElementById('status');
+
+  const ptQ = document.getElementById('pt-q');
+  const ptA = document.getElementById('pt-a');
+  const enQ = document.getElementById('en-q');
+  const enA = document.getElementById('en-a');
+  const enHint = document.getElementById('en-hint');
+
+  let recognition  = null;
+  let isListening  = false;
+  let finalText    = '';
+  let interimText  = '';
+  let currentLang  = 'en-US';  // default: inglês
+
+  // ── Language toggle ───────────────────────────────────
+  function setLang(lang) {
+    currentLang = lang;
+    document.getElementById('lang-en').classList.toggle('active', lang === 'en-US');
+    document.getElementById('lang-pt').classList.toggle('active', lang === 'pt-BR');
+    document.getElementById('lang-hint').textContent =
+      lang === 'en-US' ? '✓ ouvindo em inglês' : '✓ ouvindo em português';
+    if (recognition) recognition.lang = lang;
+  }
+  // Ativa inglês por padrão ao carregar
+  window.addEventListener('load', () => setLang('en-US'));
+
+  // ── Web Speech API ────────────────────────────────────
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous     = true;
+    recognition.interimResults = true;
+    recognition.lang           = currentLang;
+
+    recognition.onresult = (e) => {
+      finalText   = '';
+      interimText = '';
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText   += e.results[i][0].transcript;
+        else                      interimText += e.results[i][0].transcript;
+      }
+      const display = finalText || interimText;
+      transcriptBar.textContent = display || 'Ouvindo…';
+      transcriptBar.className   = display ? 'final' : 'active';
+    };
+
+    recognition.onerror = (e) => {
+      setStatus('Erro no microfone: ' + e.error, true);
+      stopListening(false);
+    };
+
+    recognition.onend = () => {
+      if (isListening) {
+        stopListening(false);
+        const q = (finalText || interimText).trim();
+        if (q) sendQuestion(q);
+      }
+    };
+  } else {
+    micBtn.disabled = true;
+    setStatus('Microfone não disponível — use Chrome. Digite a pergunta abaixo.', true);
+  }
+
+  // ── Mic button ────────────────────────────────────────
+  micBtn.addEventListener('click', () => {
+    if (!recognition) return;
+    if (isListening) {
+      stopListening(true);
+    } else {
+      startListening();
+    }
+  });
+
+  function startListening() {
+    finalText   = '';
+    interimText = '';
+    clearPanels();
+    transcriptBar.textContent = 'Ouvindo…';
+    transcriptBar.className   = 'active';
+    recognition.lang = currentLang;
+    recognition.start();
+    isListening = true;
+    micBtn.classList.add('listening');
+    micBtn.textContent = '⏹️';
+    setStatus('');
+  }
+
+  function stopListening(manual) {
+    if (recognition && isListening) recognition.stop();
+    isListening = false;
+    micBtn.classList.remove('listening');
+    micBtn.textContent = '🎙️';
+    if (manual) {
+      const q = (finalText || interimText).trim();
+      if (q) sendQuestion(q);
+    }
+  }
+
+  // ── Text fallback ─────────────────────────────────────
+  sendBtn.addEventListener('click', () => {
+    const q = fallbackInput.value.trim();
+    if (q) { sendQuestion(q); fallbackInput.value = ''; }
+  });
+  fallbackInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const q = fallbackInput.value.trim();
+      if (q) { sendQuestion(q); fallbackInput.value = ''; }
+    }
+  });
+
+  // ── Send to backend ───────────────────────────────────
+  function sendQuestion(question) {
+    clearPanels();
+    setStatus('<div class="spinner"></div> Preparando resposta…');
+    sendBtn.disabled = true;
+
+    let rawText = '';
+
+    fetch('/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    }).then(res => {
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer    = '';
+
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) { finalize(); return; }
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') { finalize(); return; }
+            try {
+              const obj = JSON.parse(raw);
+              if (obj.error) {
+                setStatus('Erro: ' + obj.error, true);
+                sendBtn.disabled = false;
+                return;
+              }
+              if (obj.text) {
+                rawText += obj.text;
+                renderPanels(rawText);
+              }
+            } catch (_) {}
+          }
+          read();
+        });
+      }
+      read();
+    }).catch(err => {
+      setStatus('Erro de conexão: ' + err.message, true);
+      sendBtn.disabled = false;
+    });
+
+    function finalize() {
+      setStatus('');
+      sendBtn.disabled = false;
+      enHint.style.display = enA.textContent.trim() ? '' : 'none';
+    }
+  }
+
+  // ── Render streaming text into panels ─────────────────
+  function renderPanels(text) {
+    const sections = { pt_q: '', en_q: '', pt_a: '', en_a: '' };
+    let current = null;
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+      if      (line.startsWith('🇧🇷 PERGUNTA')) { current = 'pt_q'; continue; }
+      else if (line.startsWith('🇺🇸 QUESTION')) { current = 'en_q'; continue; }
+      else if (line.startsWith('🇧🇷 RESPOSTA')) { current = 'pt_a'; continue; }
+      else if (line.startsWith('🇺🇸 ANSWER'))   { current = 'en_a'; continue; }
+      else if (/^━+$/.test(line))               { current = null;   continue; }
+      if (current) sections[current] += line + '\n';
+    }
+
+    ptQ.textContent = sections.pt_q.trim() || '';
+    enQ.textContent = sections.en_q.trim() || '';
+    ptA.textContent = sections.pt_a.trim() || '';
+    enA.textContent = sections.en_a.trim() || '';
+  }
+
+  // ── Helpers ───────────────────────────────────────────
+  function clearPanels() {
+    ptQ.innerHTML = '<div class="empty">Processando…</div>';
+    enQ.textContent = '';
+    ptA.textContent = '';
+    enA.textContent = '';
+    enHint.style.display = 'none';
+  }
+
+  function setStatus(html, isError = false) {
+    statusEl.innerHTML = html;
+    statusEl.style.color = isError ? '#f87171' : '#475569';
+  }
+</script>
+</body>
+</html>
