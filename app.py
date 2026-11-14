@@ -52,6 +52,65 @@ Regras:
 - Nunca mencione nomes de empresas específicas"""
 
 
+def claude_stream(sistema: str, texto: str):
+    """Chama `claude -p` sem ferramentas, hooks, MCP nem sessão salva e repassa o texto em eventos SSE."""
+    cmd = ["claude", "-p", "--tools", "", "--disable-slash-commands", "--no-session-persistence",
+           "--setting-sources", "", "--strict-mcp-config", "--system-prompt", sistema,
+           "--model", MODELO_CLAUDE, "--output-format", "stream-json", "--include-partial-messages", "--verbose"]
+    try:
+        with tempfile.TemporaryDirectory() as cwd:
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    text=True, cwd=cwd)
+            proc.stdin.write(texto)
+            proc.stdin.close()
+            for linha in proc.stdout:
+                try:
+                    ev = json.loads(linha)
+                except json.JSONDecodeError:
+                    continue
+                if ev.get("type") == "stream_event":
+                    delta = ev.get("event", {}).get("delta", {})
+                    if delta.get("type") == "text_delta":
+                        yield f"data: {json.dumps({'text': delta['text']})}\n\n"
+                elif ev.get("type") == "result" and ev.get("is_error"):
+                    yield f"data: {json.dumps({'error': str(ev.get('result'))})}\n\n"
+            proc.wait(timeout=120)
+            if proc.returncode:
+                yield f"data: {json.dumps({'error': proc.stderr.read()[:300]})}\n\n"
+        yield "data: [DONE]\n\n"
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        yield f"data: {json.dumps({'error': f'claude CLI: {e}'})}\n\n"
+
+
+TRADUTOR = """Você é um intérprete. Traduza o texto recebido de {de} para {para}, com fidelidade ao sentido.
+Regras:
+- Devolva somente a tradução, sem aspas, sem comentários, sem notas.
+- Não responda perguntas contidas no texto e não acrescente informação: só traduza.
+- O texto veio de reconhecimento de voz e pode ter palavras erradas; corrija pelo contexto, sem inventar conteúdo.
+{extra}"""
+
+EXTRA_EN = ("- O resultado será lido em voz alta numa videochamada por um falante de português com inglês intermediário: "
+            "use frases curtas, vocabulário comum e ordem direta, mantendo o tom profissional.")
+
+
+@app.get("/tradutor", response_class=HTMLResponse)
+async def tradutor():
+    return Path("templates/tradutor.html").read_text(encoding="utf-8")
+
+
+@app.post("/traduzir")
+async def traduzir(request: Request):
+    data = await request.json()
+    texto = data.get("texto", "").strip()
+    para = data.get("para", "pt")
+    if not texto:
+        return {"error": "texto vazio"}
+    sistema = TRADUTOR.format(de="inglês" if para == "pt" else "português", para="português do Brasil" if para == "pt" else "inglês",
+                              extra="" if para == "pt" else EXTRA_EN)
+    return StreamingResponse(claude_stream(sistema, texto), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return Path("templates/index.html").read_text(encoding="utf-8")
@@ -65,33 +124,7 @@ async def stream(request: Request):
         return {"error": "pergunta vazia"}
 
     def generate_claude():
-        # sem ferramentas, hooks, MCP nem sessão salva: o modelo só escreve texto
-        cmd = ["claude", "-p", "--tools", "", "--disable-slash-commands", "--no-session-persistence",
-               "--setting-sources", "", "--strict-mcp-config", "--system-prompt", SYSTEM_PROMPT,
-               "--model", MODELO_CLAUDE, "--output-format", "stream-json", "--include-partial-messages", "--verbose"]
-        try:
-            with tempfile.TemporaryDirectory() as cwd:
-                proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                        text=True, cwd=cwd)
-                proc.stdin.write(question)
-                proc.stdin.close()
-                for linha in proc.stdout:
-                    try:
-                        ev = json.loads(linha)
-                    except json.JSONDecodeError:
-                        continue
-                    if ev.get("type") == "stream_event":
-                        delta = ev.get("event", {}).get("delta", {})
-                        if delta.get("type") == "text_delta":
-                            yield f"data: {json.dumps({'text': delta['text']})}\n\n"
-                    elif ev.get("type") == "result" and ev.get("is_error"):
-                        yield f"data: {json.dumps({'error': str(ev.get('result'))})}\n\n"
-                proc.wait(timeout=120)
-                if proc.returncode:
-                    yield f"data: {json.dumps({'error': proc.stderr.read()[:300]})}\n\n"
-            yield "data: [DONE]\n\n"
-        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-            yield f"data: {json.dumps({'error': f'claude CLI: {e}'})}\n\n"
+        yield from claude_stream(SYSTEM_PROMPT, question)
 
     def generate():
         if PROVEDOR != "openai":

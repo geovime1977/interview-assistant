@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tradutor de Reunião</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --borda:#2a2f3a; --txt:#e8eaf0; --sub:#9aa3b2; --azul:#4f8cff; --verde:#2fbf71; --verm:#e5484d; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:14px 20px; border-bottom:1px solid var(--borda); display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  header small { color:var(--sub); }
+  main { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px; height:calc(100vh - 62px); }
+  @media (max-width:900px) { main { grid-template-columns:1fr; height:auto; } }
+  .col { background:var(--card); border:1px solid var(--borda); border-radius:12px; padding:14px; display:flex; flex-direction:column; min-height:0; }
+  .col h2 { font-size:15px; margin:0 0 10px; color:var(--sub); font-weight:600; }
+  .barra { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  button { background:var(--azul); color:#fff; border:0; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; }
+  button.parar { background:var(--verm); }
+  button.sec { background:#2a2f3a; }
+  .ao-vivo { color:var(--sub); font-style:italic; min-height:22px; font-size:14px; }
+  #feed { overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px; }
+  .item { border-left:3px solid var(--azul); padding:6px 10px; }
+  .item .orig { color:var(--sub); font-size:13px; }
+  .item .trad { font-size:19px; line-height:1.35; margin-top:2px; }
+  textarea { width:100%; min-height:110px; background:#0f1115; color:var(--txt); border:1px solid var(--borda); border-radius:8px; padding:10px; font-size:16px; resize:vertical; }
+  #saida-en { flex:1; overflow-y:auto; font-size:26px; line-height:1.45; padding:12px; margin-top:10px; border:1px solid var(--borda); border-radius:8px; background:#0f1115; }
+  #saida-en:empty::before { content:"O inglês para você ler aparece aqui."; color:var(--sub); font-size:16px; }
+  .status { font-size:13px; color:var(--sub); }
+  .erro { color:var(--verm); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tradutor de Reunião</h1>
+  <small>Esquerda: o que eles dizem, traduzido. Direita: o que você quer dizer, em inglês para ler. Use no Chrome.</small>
+  <a href="/" style="color:var(--azul);margin-left:auto;font-size:13px">Simulador de entrevista →</a>
+</header>
+<main>
+  <section class="col">
+    <h2>🇺🇸 Eles falam → 🇧🇷 português</h2>
+    <div class="barra">
+      <button id="btn-ouvir">🎙️ Ouvir inglês</button>
+      <button class="sec" id="btn-limpar">Limpar</button>
+      <span class="status" id="st-ouvir">parado</span>
+    </div>
+    <div class="ao-vivo" id="ao-vivo"></div>
+    <div id="feed"></div>
+  </section>
+
+  <section class="col">
+    <h2>🇧🇷 Você responde → 🇺🇸 inglês para ler</h2>
+    <div class="barra">
+      <button id="btn-falar">🎙️ Ditar em português</button>
+      <button id="btn-traduzir">Traduzir para inglês ⏎</button>
+      <span class="status" id="st-falar"></span>
+    </div>
+    <textarea id="minha-fala" placeholder="Fale ou digite o que você quer dizer, em português. Ctrl/⌘ + Enter traduz."></textarea>
+    <div id="saida-en"></div>
+  </section>
+</main>
+<script>
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+async function traduzir(texto, para, onTexto) {
+  const r = await fetch('/traduzir', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texto, para }) });
+  const leitor = r.body.getReader(); const dec = new TextDecoder(); let buf = '', total = '';
+  while (true) {
+    const { value, done } = await leitor.read(); if (done) break;
+    buf += dec.decode(value, { stream:true });
+    const partes = buf.split('\n\n'); buf = partes.pop();
+    for (const p of partes) {
+      if (!p.startsWith('data: ')) continue;
+      const d = p.slice(6); if (d === '[DONE]') return total;
+      const j = JSON.parse(d);
+      if (j.error) { onTexto(total + ' [erro: ' + j.error + ']', true); return total; }
+      total += j.text || ''; onTexto(total, false);
+    }
+  }
+  return total;
+}
+
+// ── Esquerda: ouvir inglês continuamente; cada frase final vira um item traduzido
+const feed = document.getElementById('feed'), aoVivo = document.getElementById('ao-vivo');
+const btnOuvir = document.getElementById('btn-ouvir'), stOuvir = document.getElementById('st-ouvir');
+let rec = null, ouvindo = false;
+
+function novoItem(orig) {
+  const div = document.createElement('div'); div.className = 'item';
+  div.innerHTML = '<div class="orig"></div><div class="trad">…</div>';
+  div.querySelector('.orig').textContent = orig;
+  feed.prepend(div);
+  traduzir(orig, 'pt', (t, erro) => { const el = div.querySelector('.trad'); el.textContent = t; if (erro) el.classList.add('erro'); });
+}
+
+if (SR) {
+  rec = new SR(); rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = true;
+  rec.onresult = (e) => {
+    let parcial = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript.trim();
+      if (e.results[i].isFinal) { if (t) novoItem(t); } else parcial += t + ' ';
+    }
+    aoVivo.textContent = parcial;
+  };
+  rec.onerror = (e) => { stOuvir.textContent = 'erro: ' + e.error; };
+  rec.onend = () => { if (ouvindo) rec.start(); };  // o Chrome encerra sozinho após silêncio; reinicia
+} else {
+  btnOuvir.disabled = true; stOuvir.textContent = 'reconhecimento de voz indisponível: use o Chrome';
+}
+btnOuvir.onclick = () => {
+  if (!rec) return;
+  ouvindo = !ouvindo;
+  if (ouvindo) { rec.start(); btnOuvir.textContent = '⏹ Parar'; btnOuvir.classList.add('parar'); stOuvir.textContent = 'ouvindo inglês…'; }
+  else { rec.stop(); btnOuvir.textContent = '🎙️ Ouvir inglês'; btnOuvir.classList.remove('parar'); stOuvir.textContent = 'parado'; aoVivo.textContent = ''; }
+};
+document.getElementById('btn-limpar').onclick = () => { feed.innerHTML = ''; };
+
+// ── Direita: ditar ou digitar em português e traduzir para inglês
+const caixa = document.getElementById('minha-fala'), saida = document.getElementById('saida-en');
+const btnFalar = document.getElementById('btn-falar'), stFalar = document.getElementById('st-falar');
+let recPt = null, ditando = false;
+if (SR) {
+  recPt = new SR(); recPt.lang = 'pt-BR'; recPt.continuous = true; recPt.interimResults = true;
+  let base = '';
+  recPt.onstart = () => { base = caixa.value ? caixa.value.trim() + ' ' : ''; };
+  recPt.onresult = (e) => {
+    let fin = '', parc = '';
+    for (let i = 0; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) fin += t; else parc += t; }
+    caixa.value = base + fin + parc;
+  };
+  recPt.onend = () => { if (ditando) { ditando = false; btnFalar.textContent = '🎙️ Ditar em português'; btnFalar.classList.remove('parar'); fazerTraducao(); } };
+}
+btnFalar.onclick = () => {
+  if (!recPt) return;
+  if (ouvindo) btnOuvir.click();  // o Chrome só usa o microfone para um reconhecimento por vez
+  if (!ditando) { ditando = true; recPt.start(); btnFalar.textContent = '⏹ Terminar e traduzir'; btnFalar.classList.add('parar'); }
+  else { recPt.stop(); }
+};
+async function fazerTraducao() {
+  const t = caixa.value.trim(); if (!t) return;
+  stFalar.textContent = 'traduzindo…'; saida.textContent = '';
+  await traduzir(t, 'en', (txt, erro) => { saida.textContent = txt; saida.classList.toggle('erro', erro); });
+  stFalar.textContent = 'pronto';
+}
+document.getElementById('btn-traduzir').onclick = fazerTraducao;
+caixa.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); fazerTraducao(); } });
+</script>
+</body>
+</html>
