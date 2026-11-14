@@ -5,6 +5,8 @@ Usa Web Speech API (browser) para captura de voz e GPT-4o para tradução + resp
 
 import json
 import os
+import subprocess
+import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -12,7 +14,10 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from openai import OpenAI
 
 app = FastAPI()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# claude-cli: usa o login do Claude Code (sem chave de API). openai: exige OPENAI_API_KEY com créditos.
+PROVEDOR = os.getenv("IA_PROVIDER", "claude-cli")
+MODELO_CLAUDE = os.getenv("IA_CLAUDE_MODEL", "haiku")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) if PROVEDOR == "openai" else None
 
 SYSTEM_PROMPT = """Você é um assistente de entrevista para Geovane, profissional de dados com experiência em analytics, machine learning e pesquisa operacional.
 
@@ -59,7 +64,39 @@ async def stream(request: Request):
     if not question:
         return {"error": "pergunta vazia"}
 
+    def generate_claude():
+        # sem ferramentas, hooks, MCP nem sessão salva: o modelo só escreve texto
+        cmd = ["claude", "-p", "--tools", "", "--disable-slash-commands", "--no-session-persistence",
+               "--setting-sources", "", "--strict-mcp-config", "--system-prompt", SYSTEM_PROMPT,
+               "--model", MODELO_CLAUDE, "--output-format", "stream-json", "--include-partial-messages", "--verbose"]
+        try:
+            with tempfile.TemporaryDirectory() as cwd:
+                proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        text=True, cwd=cwd)
+                proc.stdin.write(question)
+                proc.stdin.close()
+                for linha in proc.stdout:
+                    try:
+                        ev = json.loads(linha)
+                    except json.JSONDecodeError:
+                        continue
+                    if ev.get("type") == "stream_event":
+                        delta = ev.get("event", {}).get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            yield f"data: {json.dumps({'text': delta['text']})}\n\n"
+                    elif ev.get("type") == "result" and ev.get("is_error"):
+                        yield f"data: {json.dumps({'error': str(ev.get('result'))})}\n\n"
+                proc.wait(timeout=120)
+                if proc.returncode:
+                    yield f"data: {json.dumps({'error': proc.stderr.read()[:300]})}\n\n"
+            yield "data: [DONE]\n\n"
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            yield f"data: {json.dumps({'error': f'claude CLI: {e}'})}\n\n"
+
     def generate():
+        if PROVEDOR != "openai":
+            yield from generate_claude()
+            return
         try:
             with client.chat.completions.create(
                 model="gpt-4o",
