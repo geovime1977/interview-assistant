@@ -26,10 +26,10 @@ export OPENAI_API_KEY=sk-...
 ## Como rodar
 
 ```bash
-uv run uvicorn app:app --host 0.0.0.0 --port 8000
+uv run uvicorn app:app --host 0.0.0.0 --port 8001
 ```
 
-Acesse http://localhost:8000.
+Acesse http://localhost:8001.
 
 ## Licença
 
