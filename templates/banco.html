@@ -40,11 +40,15 @@
   #fala { font-size:16px; line-height:1.5; color:#cfd6e4; min-height:24px; }
   #avaliacao { white-space:pre-wrap; font-size:15px; line-height:1.5; }
   .aviso { color:var(--sub); font-size:12px; }
+  .cartao { background:#10203a; border:1px solid #2f4f86; border-radius:10px; padding:12px 16px; margin:12px 0;
+            font-family:ui-monospace,Menlo,monospace; font-size:15px; line-height:1.6; }
+  .cartao b { color:#8fb4ff; }
 </style>
 </head>
 <body>
 <header>
   <h1>Banco de Respostas · Compass UOL</h1>
+  <a href="/casos">Casos</a>
   <span class="aviso">Material de estudo: treine até saber de cor. Não é para ler durante a entrevista.</span>
   <span style="margin-left:auto"></span>
   <button class="b sec" id="btn-sortear">🎲 Sortear pergunta</button>
@@ -88,18 +92,27 @@ function montarMenu() {
 
 function mostrar(it) {
   atual = it; falaFinal = ''; montarMenu();
-  const temResp = !!it.resposta_en;
+  const pt = it.lingua === 'pt';
+  const resp = pt ? it.resposta_pt : it.resposta_en;
+  const temResp = !!resp;
   const ehPergunta = it.grupo.startsWith('Perguntas');
   let h = `<div class="aviso">${esc(it.grupo)}</div>`;
   if (it.pergunta_en) h += `<div class="pergunta-en">${esc(it.pergunta_en)}</div>`;
   if (it.pergunta_pt) h += `<div class="pergunta-pt" style="${it.pergunta_en ? '' : 'font-size:22px;color:var(--txt)'}">${esc(it.pergunta_pt)}</div>`;
   h += '<div class="barra">';
   if (it.pergunta_en) h += `<button class="b sec" onclick="falar(atual.pergunta_en)">🔊 Ouvir em inglês</button>`;
+  if (pt) h += `<button class="b sec" onclick="falar(atual.pergunta_pt, 'pt-BR')">🔊 Ouvir a pergunta</button>`;
   if (temResp) h += `<button class="b sec" id="btn-mostrar">👁 Mostrar resposta</button>
-                     <button class="b sec" onclick="falar(atual.resposta_en)">🔊 Ouvir a resposta</button>
+                     <button class="b sec" onclick="falar(${pt ? "atual.resposta_pt, 'pt-BR'" : 'atual.resposta_en'})">🔊 Ouvir a resposta</button>
                      <button class="b sec" onclick="speechSynthesis.cancel()">⏹</button>`;
   h += '</div>';
-  if (temResp) {
+  if ((it.cartao || []).length) {
+    h += `<div class="cartao">${it.cartao.map(l => { const k = l.indexOf(':');
+      return k > 0 ? `<b>${esc(l.slice(0, k + 1))}</b>${esc(l.slice(k + 1))}` : esc(l); }).join('<br>')}</div>`;
+  }
+  if (temResp && pt) {
+    h += `<div class="bloco"><div class="resposta oculta" id="resp">${esc(resp)}</div></div>`;
+  } else if (temResp) {
     h += `<div class="bloco"><div class="resposta oculta" id="resp">${esc(it.resposta_en)}</div>
           <div class="ref-pt"><b>Referência em português:</b> ${esc(it.resposta_pt)}</div></div>`;
   } else if (it.resposta_pt) {
@@ -110,7 +123,7 @@ function mostrar(it) {
   if (pal.length) h += `<div class="bloco"><b>Pronúncia</b><table>${pal.map(([p, f]) =>
       `<tr><td><a href="#" onclick="falar('${p.replace(/'/g, "\\'")}');return false" style="color:var(--azul)">🔊 ${esc(p)}</a></td><td>${esc(f)}</td></tr>`).join('')}</table></div>`;
   if (temResp && !ehPergunta) {
-    h += `<div class="bloco"><b>Treinar</b> — responda em voz alta, em inglês, sem olhar a resposta.
+    h += `<div class="bloco"><b>Treinar</b> — responda em voz alta, ${pt ? 'em português, olhando só o cartão (~60 s)' : 'em inglês, sem olhar a resposta'}.
           <div class="barra"><button class="b" id="btn-gravar">🎙️ Começar a responder</button>
           <button class="b sec" id="btn-avaliar" disabled>🧑‍🏫 Pedir avaliação</button></div>
           <div id="fala"></div>
@@ -143,7 +156,7 @@ function alternarGravacao() {
   const bg = document.getElementById('btn-gravar');
   if (!SR) { document.getElementById('fala').textContent = 'Reconhecimento de voz indisponível: use o Chrome.'; return; }
   if (gravando) { rec.stop(); return; }
-  rec = new SR(); rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = true;
+  rec = new SR(); rec.lang = atual.lingua === 'pt' ? 'pt-BR' : 'en-US'; rec.continuous = true; rec.interimResults = true;
   falaFinal = '';
   rec.onresult = (e) => {
     let fin = '', parc = '';
@@ -179,11 +192,11 @@ async function pedirAvaliacao() {
 }
 
 document.getElementById('btn-sortear').onclick = () => {
-  const pool = DADOS.itens.filter(i => i.resposta_en);
+  const pool = DADOS.itens.filter(i => i.resposta_en || (i.lingua === 'pt' && i.resposta_pt));
   const novos = pool.filter(i => !treinados.has(i.id));
   const lista = novos.length ? novos : pool;
   mostrar(lista[Math.floor(Math.random() * lista.length)]);
-  setTimeout(() => falar(atual.pergunta_en), 300);
+  setTimeout(() => atual.lingua === 'pt' ? falar(atual.pergunta_pt, 'pt-BR') : falar(atual.pergunta_en), 300);
 };
 
 speechSynthesis.onvoiceschanged = () => {};

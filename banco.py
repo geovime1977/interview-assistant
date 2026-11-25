@@ -339,4 +339,8 @@ BANCO = [
          resposta_en="", resposta_pt="", pontos=[], palavras={}, cuidado=""),
 ]
 
-GRUPOS = ["RH", "Perfil", "Técnica", "Perguntas para a Letícia", "Perguntas ao entrevistador"]
+from caderno import CADERNO, DICIONARIO, G as GRUPO_CADERNO, GD as GRUPO_DICIONARIO
+
+BANCO += CADERNO + DICIONARIO
+
+GRUPOS = ["RH", "Perfil", "Técnica", GRUPO_CADERNO, GRUPO_DICIONARIO, "Perguntas para a Letícia", "Perguntas ao entrevistador"]

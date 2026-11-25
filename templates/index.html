@@ -278,6 +278,7 @@
 
 <div class="header">
   <h1>🎙️ Interview Assistant</h1>
+  <div style="font-size:14px;margin-top:6px"><a href="/banco" style="color:#60a5fa">📚 Banco + Caderno técnico + Dicionário</a> · <a href="/casos" style="color:#60a5fa">Casos</a> · <a href="/tradutor" style="color:#60a5fa">Tradutor</a></div>
 </div>
 
 <!-- Language toggle -->
@@ -300,6 +301,11 @@
 
 <!-- Status -->
 <div id="status"></div>
+
+<!-- Cartão do caderno (casado por palavra-chave, sem IA) -->
+<div id="cartao" style="display:none;margin:10px 0;padding:12px 16px;background:#10203a;border:1px solid #2f4f86;
+     border-radius:10px;font-family:ui-monospace,Menlo,monospace;font-size:15px;line-height:1.6;color:#e2e8f0"></div>
+<div id="provedor" style="font-size:12px;color:#64748b;margin:4px 0"></div>
 
 <!-- Two columns -->
 <div class="columns">
@@ -354,7 +360,7 @@
   let isListening  = false;
   let finalText    = '';
   let interimText  = '';
-  let currentLang  = 'en-US';  // default: inglês
+  let currentLang  = 'pt-BR';  // padrão: entrevista em português
 
   // ── Language toggle ───────────────────────────────────
   function setLang(lang) {
@@ -366,7 +372,7 @@
     if (recognition) recognition.lang = lang;
   }
   // Ativa inglês por padrão ao carregar
-  window.addEventListener('load', () => setLang('en-US'));
+  window.addEventListener('load', () => setLang('pt-BR'));
 
   // ── Web Speech API ────────────────────────────────────
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -464,7 +470,7 @@
     fetch('/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, lang: currentLang }),
     }).then(res => {
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
@@ -489,6 +495,9 @@
                 sendBtn.disabled = false;
                 return;
               }
+              if (obj.cartao) { mostrarCartao(obj.cartao); continue; }
+              if (obj.provedor) { document.getElementById('provedor').textContent = 'IA: ' + obj.provedor; continue; }
+              if (obj.aviso) { document.getElementById('provedor').textContent = '⚠ ' + obj.aviso; continue; }
               if (obj.text) {
                 rawText += obj.text;
                 renderPanels(rawText);
@@ -533,7 +542,19 @@
   }
 
   // ── Helpers ───────────────────────────────────────────
+  function mostrarCartao(c) {
+    const el = document.getElementById('cartao');
+    const esc = s => (s || '').replace(/[&<>]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
+    el.innerHTML = `<div style="color:#8fb4ff;font-weight:700;margin-bottom:4px">📇 ${esc(c.titulo)}</div>` +
+      c.linhas.map(l => { const k = l.indexOf(':');
+        return k > 0 ? `<b style="color:#8fb4ff">${esc(l.slice(0, k + 1))}</b>${esc(l.slice(k + 1))}` : esc(l); }).join('<br>') +
+      (c.cuidado ? `<div style="margin-top:6px;color:#f0d9a6;font-family:system-ui;font-size:13px">⚠️ ${esc(c.cuidado)}</div>` : '');
+    el.style.display = '';
+  }
+
   function clearPanels() {
+    document.getElementById('cartao').style.display = 'none';
+    document.getElementById('provedor').textContent = '';
     ptQ.innerHTML = '<div class="empty">Processando…</div>';
     enQ.textContent = '';
     ptA.textContent = '';
