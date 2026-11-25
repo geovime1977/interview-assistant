@@ -147,7 +147,7 @@ async def avaliar(request: Request):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-# ───────────────────────── Casos técnicos 1 a 5
+# ───────────────────────── Casos técnicos 1 a 6
 import re
 import sqlite3
 
@@ -167,6 +167,8 @@ CASOS = {
         [("Testes bons", ["-m", "pytest", "-q", "-p", "no:cacheprovider", "test_caso5_modelo.py"]),
          ("Testes ingênuos", ["-m", "pytest", "-q", "-p", "no:cacheprovider", "test_caso5_ingenuo.py"]),
          ("Mutações: qual teste pega cada erro", ["caso5_mutacoes.py"])]),
+    6: ("Simulação do Mapeamento de Stack", "Caso Tecnico 6 — Simulacao Mapeamento de Stack.md",
+        [("Lot sizing em 3 formulações (big-M solto, apertado, localização)", ["caso6_clsp.py"])]),
 }
 
 
