@@ -361,6 +361,27 @@
   let finalText    = '';
   let interimText  = '';
   let currentLang  = 'pt-BR';  // padrão: entrevista em português
+  const SILENCIO_MS = 1200;
+  let timerSilencio = null, timerCasar = null, casadoId = null, ultimoCasado = '';
+
+  // Mostra cartão + roteiro do caderno enquanto a pergunta ainda está sendo feita (sem IA)
+  function casarAoVivo(texto) {
+    clearTimeout(timerCasar);
+    if (texto.split(/\s+/).length < 3 || texto === ultimoCasado) return;
+    timerCasar = setTimeout(async () => {
+      ultimoCasado = texto;
+      try {
+        const r = await (await fetch('/casar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                 body: JSON.stringify({ q: texto }) })).json();
+        if (r.id && r.id !== casadoId && isListening) {
+          casadoId = r.id;
+          mostrarCartao(r.cartao);
+          renderPanels(r.texto);
+          document.getElementById('provedor').textContent = 'caderno (casado enquanto ouvia)';
+        }
+      } catch (_) {}
+    }, 250);
+  }
 
   // ── Language toggle ───────────────────────────────────
   function setLang(lang) {
@@ -390,9 +411,13 @@
         if (e.results[i].isFinal) finalText   += e.results[i][0].transcript;
         else                      interimText += e.results[i][0].transcript;
       }
-      const display = finalText || interimText;
+      const display = (finalText + ' ' + interimText).trim();
       transcriptBar.textContent = display || 'Ouvindo…';
       transcriptBar.className   = display ? 'final' : 'active';
+      casarAoVivo(display);
+      // Envia sozinho após SILENCIO_MS sem fala nova (o Chrome demora muito para encerrar por conta própria)
+      clearTimeout(timerSilencio);
+      if (display) timerSilencio = setTimeout(() => { if (isListening) stopListening(true); }, SILENCIO_MS);
     };
 
     recognition.onerror = (e) => {
@@ -425,6 +450,7 @@
   function startListening() {
     finalText   = '';
     interimText = '';
+    casadoId = null; ultimoCasado = '';
     clearPanels();
     transcriptBar.textContent = 'Ouvindo…';
     transcriptBar.className   = 'active';
@@ -437,12 +463,13 @@
   }
 
   function stopListening(manual) {
+    clearTimeout(timerSilencio); clearTimeout(timerCasar);
     if (recognition && isListening) recognition.stop();
     isListening = false;
     micBtn.classList.remove('listening');
     micBtn.textContent = '🎙️';
     if (manual) {
-      const q = (finalText || interimText).trim();
+      const q = (finalText + ' ' + interimText).trim();
       if (q) sendQuestion(q);
     }
   }
@@ -522,7 +549,7 @@
 
   // ── Render streaming text into panels ─────────────────
   function renderPanels(text) {
-    const sections = { pt_q: '', en_q: '', pt_a: '', en_a: '' };
+    const sections = { pt_q: '', en_q: '', pt_a: '', en_a: '', card: '' };
     let current = null;
     const lines = text.split('\n');
 
@@ -531,10 +558,13 @@
       else if (line.startsWith('🇺🇸 QUESTION')) { current = 'en_q'; continue; }
       else if (line.startsWith('🇧🇷 RESPOSTA')) { current = 'pt_a'; continue; }
       else if (line.startsWith('🇺🇸 ANSWER'))   { current = 'en_a'; continue; }
+      else if (line.startsWith('📇 CARTÃO'))    { current = 'card'; continue; }
       else if (/^━+$/.test(line))               { current = null;   continue; }
       if (current) sections[current] += line + '\n';
     }
 
+    const linhasCard = sections.card.split('\n').map(s => s.trim()).filter(Boolean);
+    if (linhasCard.length) mostrarCartao({ titulo: 'Cartão gerado (fora do caderno)', linhas: linhasCard, cuidado: '' });
     ptQ.textContent = sections.pt_q.trim() || '';
     enQ.textContent = sections.en_q.trim() || '';
     ptA.textContent = sections.pt_a.trim() || '';
