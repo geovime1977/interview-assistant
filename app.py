@@ -386,6 +386,11 @@ async def avaliar_caso(request: Request):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@app.get("/simulado", response_class=HTMLResponse)
+async def simulado():
+    return Path("templates/simulado.html").read_text(encoding="utf-8")
+
+
 @app.post("/casar")
 async def casar(request: Request):
     """Casamento parcial enquanto o entrevistador fala: só busca no caderno, sem IA."""

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulado · Caderno técnico</title>
+<style>
+  :root { --bg:#0f1218; --card:#171c25; --borda:#2a3140; --txt:#e6e9ef; --sub:#8b93a3; --azul:#4f7cff;
+          --verde:#2fbf71; --amar:#e0a526; --verm:#e5484d; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.5 system-ui, sans-serif; }
+  header { display:flex; gap:14px; align-items:center; padding:12px 22px; border-bottom:1px solid var(--borda); }
+  header h1 { font-size:18px; margin:0; }
+  header a { color:var(--azul); font-size:14px; }
+  main { max-width:900px; margin:0 auto; padding:22px; }
+  .bloco { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:16px 18px; margin:14px 0; }
+  button.b { background:var(--azul); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:15px; cursor:pointer; }
+  button.sec { background:#2a2f3a; }
+  button.verm { background:var(--verm); }
+  label { margin-right:16px; color:var(--sub); font-size:14px; }
+  .progresso { color:var(--sub); font-size:14px; }
+  .pergunta { font-size:24px; line-height:1.35; margin:8px 0 4px; }
+  .estado { font-size:15px; margin:10px 0; }
+  .estado.ouvindo { color:var(--verde); }
+  .relogio { font-variant-numeric:tabular-nums; font-size:34px; font-weight:700; }
+  .relogio.longo { color:var(--amar); }
+  .cartao { background:#10203a; border:1px solid #2f4f86; border-radius:10px; padding:12px 16px;
+            font-family:ui-monospace,Menlo,monospace; font-size:15px; line-height:1.6; }
+  .cartao b { color:#8fb4ff; }
+  #fala { color:#cfd6e4; min-height:24px; }
+  .pontos span { display:inline-block; padding:3px 9px; margin:3px; border-radius:12px; background:#2a2f3a; font-size:13px; }
+  .pontos span.sim { background:#1f4d33; color:#bff0d2; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--borda); vertical-align:top; }
+  .forte { color:var(--verde); } .medio { color:var(--amar); } .fraco { color:var(--verm); }
+  .aval { white-space:pre-wrap; font-size:14px; color:#cfd6e4; }
+  .aviso { color:var(--sub); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎯 Simulado · Caderno técnico</h1>
+  <span style="margin-left:auto"></span>
+  <a href="/banco">Banco</a><a href="/">Assistente</a>
+</header>
+<main>
+  <div id="inicio" class="bloco">
+    <p>O app lê cada pergunta em voz alta e <b>abre o microfone sozinho</b> quando termina de falar. Responda como na entrevista.
+       A resposta encerra após <b>4 s de silêncio</b> (ou 90 s) e a próxima pergunta vem em seguida.</p>
+    <p>
+      <label><input type="radio" name="modo" value="sem" checked> Sem cartão (como na entrevista)</label>
+      <label><input type="radio" name="modo" value="com"> Com cartão (aprendendo)</label>
+    </p>
+    <p>
+      <label><input type="radio" name="qtd" value="15" checked> As 15 perguntas</label>
+      <label><input type="radio" name="qtd" value="5"> Rodada rápida (5)</label>
+      <label><input type="checkbox" id="so-fracos"> Só os cenários fracos da última vez</label>
+    </p>
+    <button class="b" id="btn-comecar">▶ Começar simulado</button>
+    <p class="aviso">Use o Chrome. A nota é local (pontos-chave citados) e não gasta IA; a avaliação por IA é opcional, no fim.</p>
+  </div>
+
+  <div id="rodada" style="display:none">
+    <div class="progresso" id="progresso"></div>
+    <div class="bloco">
+      <div class="pergunta" id="pergunta"></div>
+      <div class="estado" id="estado"></div>
+      <div style="display:flex; align-items:center; gap:16px">
+        <div class="relogio" id="relogio">0s</div>
+        <button class="b sec" id="btn-terminei">⏹ Terminei</button>
+        <button class="b sec" id="btn-pular">⏭ Pular</button>
+        <button class="b verm" id="btn-parar">Encerrar simulado</button>
+      </div>
+    </div>
+    <div class="cartao" id="cartao" style="display:none"></div>
+    <div class="bloco"><div id="fala"></div><div class="pontos" id="pontos"></div></div>
+  </div>
+
+  <div id="resultado" style="display:none">
+    <div class="bloco">
+      <h2 style="margin-top:0">Resultado</h2>
+      <div id="resumo"></div>
+      <table><thead><tr><th>Cenário</th><th>Tempo</th><th>Pontos</th><th>Situação</th><th></th></tr></thead>
+        <tbody id="tabela"></tbody></table>
+      <p><button class="b" id="btn-novo">↻ Novo simulado</button></p>
+    </div>
+  </div>
+</main>
+<script>
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SILENCIO_MS = 4000, MAX_S = 90;
+let fila = [], idx = 0, resultados = [], rec = null, ouvindo = false, falaFinal = '', parcial = '';
+let tInicio = 0, timerRelogio = null, timerSilencio = null, ativo = false;
+
+const $ = id => document.getElementById(id);
+const esc = s => (s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function falar(texto) {
+  return new Promise(res => {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = 'pt-BR'; u.rate = 1.0;
+    const voz = speechSynthesis.getVoices().find(v => v.lang === 'pt-BR' && /Luciana|Google/.test(v.name))
+             || speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('pt'));
+    if (voz) u.voice = voz;
+    u.onend = res; u.onerror = res;
+    speechSynthesis.speak(u);
+  });
+}
+
+function pontosCitados(item, texto) {
+  const t = norm(texto);
+  return item.pontos.map(p => {
+    const n = norm(p), pal = n.split(/\s+/).filter(w => w.length > 3);
+    return t.includes(n) || (pal.length && pal.filter(w => t.includes(w)).length / pal.length >= 0.6);
+  });
+}
+
+function cartaoHTML(item) {
+  return item.cartao.map(l => { const k = l.indexOf(':');
+    return k > 0 ? `<b>${esc(l.slice(0, k + 1))}</b>${esc(l.slice(k + 1))}` : esc(l); }).join('<br>');
+}
+
+async function comecar() {
+  const dados = await (await fetch('/api/banco')).json();
+  let itens = dados.itens.filter(i => i.grupo === 'Caderno técnico');
+  if ($('so-fracos').checked) {
+    const fracos = JSON.parse(localStorage.getItem('simulado_fracos') || '[]');
+    if (fracos.length) itens = itens.filter(i => fracos.includes(i.id));
+  }
+  itens.sort(() => Math.random() - 0.5);
+  fila = itens.slice(0, +document.querySelector('[name=qtd]:checked').value);
+  idx = 0; resultados = []; ativo = true;
+  $('inicio').style.display = 'none'; $('resultado').style.display = 'none'; $('rodada').style.display = '';
+  proxima();
+}
+
+async function proxima() {
+  if (!ativo) return;
+  if (idx >= fila.length) return terminar();
+  const it = fila[idx];
+  $('progresso').textContent = `Pergunta ${idx + 1} de ${fila.length}`;
+  $('pergunta').textContent = it.pergunta_pt;
+  $('fala').textContent = ''; $('relogio').textContent = '0s'; $('relogio').className = 'relogio';
+  $('pontos').innerHTML = it.pontos.map(p => `<span>${esc(p)}</span>`).join('');
+  const comCartao = document.querySelector('[name=modo]:checked').value === 'com';
+  $('cartao').style.display = comCartao ? '' : 'none';
+  $('cartao').innerHTML = cartaoHTML(it);
+  $('estado').className = 'estado'; $('estado').textContent = '🔊 Lendo a pergunta…';
+  await falar(it.pergunta_pt);
+  if (ativo) ouvir(it);
+}
+
+function ouvir(it) {
+  falaFinal = ''; parcial = '';
+  rec = new SR(); rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = true;
+  rec.onresult = e => {
+    let fin = '', par = '';
+    for (let i = 0; i < e.results.length; i++) {
+      const x = e.results[i][0].transcript;
+      if (e.results[i].isFinal) fin += x + ' '; else par += x;
+    }
+    falaFinal = fin; parcial = par;
+    $('fala').textContent = fin + par;
+    pontosCitados(it, fin + par).forEach((ok, i) => $('pontos').children[i].className = ok ? 'sim' : '');
+    clearTimeout(timerSilencio);
+    timerSilencio = setTimeout(() => encerrarResposta(it), SILENCIO_MS);
+  };
+  rec.onerror = e => { if (e.error !== 'no-speech' && e.error !== 'aborted') $('estado').textContent = 'Microfone: ' + e.error; };
+  rec.onend = () => { if (ouvindo) { try { rec.start(); } catch (_) {} } };  // o Chrome encerra sozinho; reabre até a resposta acabar
+  ouvindo = true; rec.start();
+  tInicio = Date.now();
+  $('estado').className = 'estado ouvindo'; $('estado').textContent = '🎙️ Microfone aberto: pode responder';
+  clearInterval(timerRelogio);
+  timerRelogio = setInterval(() => {
+    const s = Math.round((Date.now() - tInicio) / 1000);
+    $('relogio').textContent = s + 's';
+    $('relogio').className = 'relogio' + (s > 70 ? ' longo' : '');
+    if (s >= MAX_S) encerrarResposta(it);
+  }, 250);
+  // Sem nenhuma fala em 10 s: encerra para não travar a rodada
+  timerSilencio = setTimeout(() => encerrarResposta(it), 10000);
+}
+
+function encerrarResposta(it, pulou = false, ultima = false) {
+  if (!ouvindo) return;
+  ouvindo = false;
+  clearTimeout(timerSilencio); clearInterval(timerRelogio);
+  try { rec.stop(); } catch (_) {}
+  const texto = (falaFinal + ' ' + parcial).trim();
+  const fala_s = texto ? Math.max(0, Math.round((Date.now() - tInicio - (pulou ? 0 : SILENCIO_MS)) / 1000)) : 0;
+  const hits = pontosCitados(it, texto);
+  const pct = it.pontos.length ? Math.round(100 * hits.filter(Boolean).length / it.pontos.length) : 0;
+  resultados.push({ it, texto, fala_s, pct, faltou: it.pontos.filter((_, i) => !hits[i]), pulou });
+  $('estado').className = 'estado'; $('estado').textContent = pulou ? 'Pulada.' : `Registrado: ${pct}% dos pontos.`;
+  idx++;
+  if (!ultima) setTimeout(proxima, 1500);
+}
+
+function situacao(r) {
+  if (r.pulou || !r.texto) return ['fraco', 'sem resposta'];
+  if (r.pct >= 70 && r.fala_s <= 75) return ['forte', 'forte'];
+  if (r.pct >= 40) return ['medio', r.fala_s > 75 ? 'médio · longa demais' : 'médio'];
+  return ['fraco', 'fraco'];
+}
+
+function terminar() {
+  if (ouvindo && fila[idx]) encerrarResposta(fila[idx], false, true);  // guarda a resposta em andamento
+  ativo = false; ouvindo = false;
+  try { rec && rec.stop(); } catch (_) {}
+  speechSynthesis.cancel();
+  $('rodada').style.display = 'none'; $('resultado').style.display = '';
+  const fortes = resultados.filter(r => situacao(r)[0] === 'forte').length;
+  const fracos = resultados.filter(r => situacao(r)[0] !== 'forte').map(r => r.it.id);
+  localStorage.setItem('simulado_fracos', JSON.stringify(fracos));
+  const hist = JSON.parse(localStorage.getItem('simulado_hist') || '[]');
+  hist.push({ data: new Date().toISOString().slice(0, 16), n: resultados.length, fortes });
+  localStorage.setItem('simulado_hist', JSON.stringify(hist.slice(-20)));
+  const media = resultados.length ? Math.round(resultados.reduce((a, r) => a + r.pct, 0) / resultados.length) : 0;
+  $('resumo').innerHTML = `<p><b>${fortes} de ${resultados.length}</b> cenários fortes · média de ${media}% dos pontos-chave.
+    ${!resultados.length ? 'Nenhuma resposta registrada.' : fracos.length ? 'Marque "só os cenários fracos" no próximo simulado para treinar estes.' : 'Todos fortes: troque para o modo sem cartão, se ainda não estiver.'}</p>
+    <p class="aviso">Histórico: ${hist.slice(-5).map(h => `${h.data.replace('T', ' ')} → ${h.fortes}/${h.n}`).join(' · ')}</p>`;
+  $('tabela').innerHTML = resultados.map((r, i) => {
+    const [cls, rot] = situacao(r);
+    return `<tr><td>${esc(r.it.titulo)}${r.faltou.length ? `<div class="aviso">Faltou: ${esc(r.faltou.join(', '))}</div>` : ''}
+      <div class="aval" id="aval-${i}"></div></td>
+      <td>${r.fala_s}s</td><td>${r.pct}%</td><td class="${cls}">${rot}</td>
+      <td>${r.texto ? `<button class="b sec" onclick="avaliar(${i})">🧑‍🏫 IA</button>` : ''}</td></tr>`;
+  }).join('');
+}
+
+async function avaliar(i) {
+  const r = resultados[i], out = $('aval-' + i);
+  out.textContent = 'Avaliando…';
+  const resp = await fetch('/avaliar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                         body: JSON.stringify({ id: r.it.id, fala: r.texto }) });
+  const leitor = resp.body.getReader(), dec = new TextDecoder(); let buf = '', total = '';
+  while (true) {
+    const { value, done } = await leitor.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const partes = buf.split('\n\n'); buf = partes.pop();
+    for (const p of partes) {
+      if (!p.startsWith('data: ')) continue;
+      const d = p.slice(6); if (d === '[DONE]') return;
+      const j = JSON.parse(d);
+      if (j.error) { out.textContent = 'Erro: ' + j.error; return; }
+      total += j.text || ''; out.textContent = total.replace(/\*\*/g, '');
+    }
+  }
+}
+
+$('btn-comecar').onclick = () => { if (!SR) return alert('Use o Chrome.'); comecar(); };
+$('btn-terminei').onclick = () => fila[idx] && encerrarResposta(fila[idx]);
+$('btn-pular').onclick = () => { speechSynthesis.cancel(); if (ouvindo) encerrarResposta(fila[idx], true); else { idx++; proxima(); } };
+$('btn-parar').onclick = terminar;
+$('btn-novo').onclick = () => { $('resultado').style.display = 'none'; $('inicio').style.display = ''; };
+speechSynthesis.getVoices();
+</script>
+</body>
+</html>
