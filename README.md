@@ -20,6 +20,7 @@ Python · FastAPI · OpenAI GPT-4o · Uvicorn · Web Speech API
 git clone https://github.com/geovime1977/interview-assistant.git
 cd interview-assistant
 uv venv && uv pip install -r requirements.txt
+export IA_PROVIDER=openai
 export OPENAI_API_KEY=sk-...
 ```
 
