@@ -263,6 +263,65 @@ CADERNO = [
           ["folgas", "gargalos", "fixo as variáveis binárias", "LP residual", "custo reduzido", "paramétrica"],
           ["sensibilidade", "sensitivity", "shadow price", "preco-sombra", "preco sombra", "dual", "reduced cost",
            "custo reduzido", "pos-otim", "post-optim", "parametric", "parametrica", "after the optimal"]),
+
+    _item(15, "Cenário 15 — Problema de transporte (rede de distribuição)",
+          "Uma empresa tem fábricas e centros de distribuição e quer decidir quanto enviar de cada origem para cada "
+          "destino com o menor custo. Como você modela e o que analisa?",
+          ["MODELO: Problema de transporte (LP) | x(i,j) = quantidade da origem i ao destino j (contínua)",
+           "OBJETIVO/RESTR.: Min Σ c(i,j)·x(i,j) | Oferta: Σ_j x ≤ capacidade(i) | Demanda: Σ_i x ≥ demanda(j)",
+           "ESTRUTURA: Matriz totalmente unimodular → solução inteira de graça | Desbalanceado: origem/destino fictício",
+           "ANÁLISE: Rotas usadas | Preço-sombra da fábrica gargalo | Custo reduzido das rotas fora"],
+          "Modelo como um problema de transporte em programação linear: a variável é quanto enviar de cada origem para "
+          "cada destino, e o objetivo é minimizar o custo total de frete. As restrições garantem que nenhuma fábrica "
+          "envie além da capacidade e que cada centro receba a sua demanda. Se oferta e demanda não fecham, crio uma "
+          "origem ou um destino fictício para representar a falta ou a sobra.\n\n"
+          "Esse modelo tem uma vantagem: pela estrutura da matriz, a solução do LP já sai inteira, então resolve rápido "
+          "mesmo grande. Se houver custo fixo por rota ou por veículo, aí vira MILP.\n\n"
+          "Na análise, mostro ao cliente quais rotas o plano usa, quanto vale uma unidade a mais de capacidade na fábrica "
+          "gargalo, pelo preço-sombra, e quanto o frete de uma rota não usada precisaria cair para valer a pena, pelo "
+          "custo reduzido. Modelei esse problema no meu sprint de Gurobi.",
+          ["transporte", "origem", "destino", "capacidade", "demanda", "fictício", "preço-sombra", "custo reduzido"],
+          ["transporte", "transportation", "frete", "freight", "origem", "destino", "origin", "destination",
+           "fabrica", "fabricas", "factory", "factories", "plants", "freight costs", "quanto enviar", "how much to ship", "enviar", "ship", "distribuicao", "distribution network", "rede de distribuicao", "shipping"]),
+
+    _item(16, "Cenário 16 — Armazéns: onde abrir e quem atender (localização)",
+          "O cliente quer saber quantos armazéns abrir, onde, e qual região cada um atende. Como você resolve?",
+          ["MODELO: Localização de instalações capacitada (MILP)",
+           "DECISÕES: y(i) abrir armazém (bin) | x(i,j) fração da região j atendida por i (cont)",
+           "OBJETIVO/RESTR.: Min custo fixo de abertura + transporte | Atender 100% da demanda | x ≤ y (só atende se aberto) | Capacidade | Máx. P armazéns",
+           "ANÁLISE: Comparar com a rede atual | Cenário de demanda +20% | Formulação forte x(i,j) ≤ y(i)"],
+          "É um problema clássico de localização de instalações com capacidade, em MILP. Uso uma variável binária para "
+          "abrir ou não cada armazém candidato e uma variável contínua para a parte da demanda de cada região atendida "
+          "por cada armazém. O objetivo soma o custo fixo de abertura e o custo de transporte.\n\n"
+          "Nas restrições, toda a demanda precisa ser atendida, um armazém só atende se estiver aberto, cada um respeita "
+          "a sua capacidade e, se o cliente quiser, limito o número de armazéns. Uso a ligação desagregada, região por "
+          "armazém, porque dá uma relaxação mais forte e o solver fecha o gap mais rápido.\n\n"
+          "Para o cliente, comparo o plano com a rede atual e testo cenários, como crescimento de 20% da demanda, para "
+          "ver se a rede aguenta ou se compensa abrir mais um. Tenho esse modelo no meu repositório de facility location.",
+          ["binária", "abrir", "custo fixo", "transporte", "capacidade", "relaxação", "cenários", "rede atual"],
+          ["armazem", "armazens", "warehouse", "warehouses", "centro de distribuicao", "centros de distribuicao", "cd",
+           "facility location", "localizacao", "location", "onde abrir", "where to open", "hub", "hubs", "deposito"],
+          cuidado="Os números do sprint de Gurobi (6 CDs, R$ 5,1 mi) são de um caso com dados construídos. "
+                  "Fale do método; se citar número, diga que é caso de estudo."),
+
+    _item(17, "Cenário 17 — Assessorar o cliente: mais lucro e menos gasto",
+          "Como você assessoraria um cliente que quer aumentar o lucro e reduzir os gastos da operação usando otimização?",
+          ["ENTENDER: Qual decisão (rota, estoque, armazém, mix) | Quem decide | Como mede hoje (linha de base)",
+           "MODELAR: Max margem ou Min custo total | Restrições reais (capacidade, prazo, frota, nível de serviço)",
+           "TRADE-OFFS: Frete × prazo | Estoque × armazenagem | Cenários e-se + preço-sombra",
+           "ENTREGAR: Piloto contra a regra atual | Painel para o gestor | Medir o ganho realizado"],
+          "Começo entendendo o negócio antes do modelo: qual decisão o cliente toma, com que frequência, quem decide, e "
+          "como ele mede o resultado hoje. Essa linha de base é o que vai provar o ganho depois.\n\n"
+          "Depois traduzo em modelo: as decisões viram variáveis, o objetivo é maximizar a margem ou minimizar o custo "
+          "total, e as regras da operação viram restrições, como capacidade, prazo de entrega, tamanho da frota e nível "
+          "de serviço. O valor da consultoria está nos trade-offs: frete mais barato contra prazo maior, estoque alto "
+          "contra custo de armazenagem. Mostro isso em cenários e-se e com o preço-sombra, que diz quanto vale aliviar "
+          "cada gargalo.\n\n"
+          "Por fim, valido com um piloto comparado à regra atual, entrego um painel simples para o gestor testar "
+          "cenários, e acompanho o ganho realizado, não só o previsto pelo modelo.",
+          ["linha de base", "decisão", "margem", "restrições", "trade-offs", "cenários", "preço-sombra", "piloto"],
+          ["assessor", "assessorar", "assessoraria", "consultoria", "consulting", "advise", "lucro", "profit", "reduzir custo",
+           "reduzir gastos", "reduce costs", "cost reduction", "aumentar o lucro", "margem", "margin", "gastos"]),
 ]
 
 
