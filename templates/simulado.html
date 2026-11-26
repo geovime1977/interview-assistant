@@ -202,7 +202,12 @@ function ouvir(it) {
     clearTimeout(timerSilencio);
     if (!gupy) timerSilencio = setTimeout(() => encerrarResposta(it), SILENCIO_MS);
   };
-  rec.onerror = e => { if (e.error !== 'no-speech' && e.error !== 'aborted') $('estado').textContent = 'Microfone: ' + e.error; };
+  rec.onerror = e => {
+    if (e.error === 'no-speech') return;
+    $('estado').textContent = e.error === 'aborted'
+      ? 'Microfone: outra aba tomou o microfone. Feche as outras abas do assistente e reinicie o simulado.'
+      : 'Microfone: ' + e.error;
+  };
   rec.onend = () => { if (ouvindo) { try { rec.start(); } catch (_) {} } };  // o Chrome encerra sozinho; reabre até a resposta acabar
   ouvindo = true; rec.start();
   tInicio = Date.now();

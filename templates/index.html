@@ -420,17 +420,23 @@
       if (display) timerSilencio = setTimeout(() => { if (isListening) stopListening(true); }, SILENCIO_MS);
     };
 
+    const MSG_ERRO = {
+      'aborted': 'O microfone foi tomado por outra aba. Feche as outras abas do assistente/simulado e tente de novo.',
+      'audio-capture': 'Nenhum microfone disponível. Confira se outro programa não está com ele e o microfone do Chrome.',
+      'not-allowed': 'O Chrome está bloqueando o microfone: clique no cadeado da barra de endereço e permita.',
+      'network': 'O reconhecimento de voz do Chrome precisa de internet. Confira a conexão.',
+    };
     recognition.onerror = (e) => {
-      setStatus('Erro no microfone: ' + e.error, true);
+      if (e.error === 'no-speech') return;  // ninguém falou ainda: o onend reabre e continua ouvindo
+      setStatus('Microfone: ' + (MSG_ERRO[e.error] || e.error), true);
       stopListening(false);
     };
 
     recognition.onend = () => {
-      if (isListening) {
-        stopListening(false);
-        const q = (finalText || interimText).trim();
-        if (q) sendQuestion(q);
-      }
+      if (!isListening) return;
+      const q = (finalText + ' ' + interimText).trim();
+      if (q) { stopListening(false); sendQuestion(q); return; }
+      try { recognition.start(); } catch (_) {}  // o Chrome encerrou por silêncio: continua ouvindo até alguém falar
     };
   } else {
     micBtn.disabled = true;
@@ -455,7 +461,7 @@
     transcriptBar.textContent = 'Ouvindo…';
     transcriptBar.className   = 'active';
     recognition.lang = currentLang;
-    recognition.start();
+    try { recognition.start(); } catch (e) { setStatus('Microfone: ' + e.message, true); return; }
     isListening = true;
     micBtn.classList.add('listening');
     micBtn.textContent = '⏹️';
