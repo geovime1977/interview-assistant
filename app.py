@@ -28,6 +28,40 @@ if PROVEDOR != "claude-cli" and os.getenv("OPENAI_API_KEY"):
 print(f"[IA] opção 1: {'OpenAI ' + MODELO_OPENAI if client else 'OpenAI desligada (sem OPENAI_API_KEY)'} · "
       f"opção 2: Claude CLI {MODELO_CLAUDE}", flush=True)
 
+FATOS = """FATOS VERIFICADOS DE GEOVANE (únicos permitidos; conferidos em documentos e no código em 26/11/2026):
+Trajetória
+- Oficial da Arma de Comunicações do Exército, formado pela AMAN, serviço de 11/02/1995 a 30/04/2025; coronel da reserva.
+- Chefe da Seção de Informática do Cmdo da 3ª Bda Inf Mtz a partir de fev/2021 (rede telefônica, página de internet).
+- Chefe da 4ª Seção (logística) no Comando de Comunicações e Guerra Eletrônica de 2017 a 2020; antes, adjunto da 4ª Seção na 13ª Bda.
+- Cursos: Estágio de Telemática (1999), Guerra Eletrônica para Oficiais (2010), Planejamento de Guerra Eletrônica (2015).
+- Consultor independente em otimização e IA desde 2023, sem CNPJ. Nunca trabalhou em empresa privada grande nem sustentou sistema em produção com usuários.
+Formação
+- Licenciatura em Matemática; MBA em IA para Negócios (concluído, 360 h).
+- EM ANDAMENTO: MBA em Pesquisa Operacional e Tomada de Decisão; MBA em Finanças Corporativas; Pós em Desenvolvimento de Aplicações Web.
+- 3 artigos de PO aprovados no ENEGEP 2026.
+Projetos (Python)
+- otimizacao-prescritiva: Holt-Winters → MILP de lot sizing capacitado (CLSP) em Pyomo; HiGHS padrão, Gurobi opcional; big-M ajustado pela demanda restante e capacidade; FastAPI; Docker; CI com cobertura mínima de 85%; ruff; vitrine Streamlit com Monte Carlo e tornado. SEM pip-audit no CI.
+- pyomo-portfolio: MILP de escala de pessoal (cobertura, competências, carga horária); src em loader/schemas/model/solver/reporter; solver GLPK padrão, troca por argumento (CBC, Gurobi, CPLEX); testes.
+- gurobi-sprint (público): scripts de estudo em Gurobi — LP, localização de instalações, transporte, designação, CVRP, heurísticas, case; usa TimeLimit e MIPGap.
+- motor-po-core: motor genérico solve(problema, dados) que classifica o problema e escolhe entre ~15 métodos (LP, mochila, EOQ, CPM, AHP, SAPEVO-M, TOPSIS, DEA, M/M/c, Monte Carlo, Markov, MICMAC, jogos); FastAPI + SDK; CI e teste de mutação. Sem Docker.
+- ps-filas-dashboard: M/M/c por Erlang C + simulação de eventos discretos com replicações; ranking SAPEVO-M/AHP; reproduz artigo do ENEGEP.
+- compras-po: app PESSOAL de compras de mercado; MILP em PuLP+CBC decide onde comprar cada item (preço + deslocamento); IA de visão lê panfleto.
+- incerteza-lab: exercícios do MBA de decisão sob incerteza (Maximax, Maximin, Laplace, Hurwicz, Savage, EVPI, Markowitz). NÃO é simulação de demanda.
+Artigos (XLVI ENEGEP 2026, área Pesquisa Operacional / Modelagem, Simulação e Otimização; todos com DOI 10.14488; coautor Prof. José Bezerra da Silva Filho)
+- 52667 FRAME-SCEN: framework de 5 etapas para cenários prospectivos com PO e IA em consultoria a PMEs industriais (diagnóstico ambiental; variáveis críticas com MICMAC; cenários por simulação Monte Carlo; avaliação estratégica com suporte de IA e multicritério; planos de resposta). Aplicado a CASO HIPOTÉTICO de manufatura de médio porte. Maior nota dos três (3,92/4).
+- 51501 Pronto-socorro: teoria das filas M/M/c + simulação de eventos discretos + SAPEVO-M para priorizar ações (eficácia, custo, impacto). Reproduzido no ps-filas-dashboard.
+- 52666 PNE 2026-2036 (primeira autora Cristiane Cruz de Oliveira; Geovane coautor): AHP + DEA + Programação por Metas Estocástica + Monte Carlo para alocar recursos da educação entre municípios. Os números do resumo (93% das metas, -0,7 p.p. do PIB, 84% de robustez) vêm de instância com dados em parte SINTÉTICOS: não apresentar como resultado real.
+- Apresentados como e-pôster no ENEGEP, São Paulo, outubro de 2026.
+- Anais: https://www.abepro.org.br/publicacoes/index.asp?pesq=ok&ano=2026&area=&pchave=&autor=GEOVANE+VIRMECATI&categ=
+- Relação com a vaga: os três são de PO aplicada e decisão sob incerteza (simulação, Monte Carlo, multicritério, programação por metas). NENHUM usa Pyomo, Gurobi, MILP de logística ou dado real de cliente; a stack Pyomo/HiGHS/Gurobi está nos projetos do GitHub. Software usado nos artigos: não verificado, não afirmar.
+Nunca dizer
+- "liderei equipes de TI", "em produção com cliente", "tuning avançado de Gurobi", "HiGHS no pyomo-portfolio".
+- R$ 5,1M ou 15% como resultado real (são de caso de estudo com dados construídos).
+- Experiência profissional com Java ou C/C++ (não tem).
+- Que algum artigo usou dado real de cliente, Pyomo ou Gurobi.
+Vaga: Python Data Science com Pesquisa Operacional, nível pleno, Compass UOL (grupo AI/R), cliente provável de logística (a prova técnica trouxe transporte, armazéns e assessoria de lucro/custo)."""
+
+
 SYSTEM_PROMPT = """Você é um assistente de entrevista para Geovane, candidato a uma vaga de Python Data Science com Pesquisa Operacional.
 
 Quando receber uma pergunta de entrevista (em qualquer idioma), responda EXATAMENTE neste formato:
@@ -47,11 +81,7 @@ Quando receber uma pergunta de entrevista (em qualquer idioma), responda EXATAME
 [a mesma resposta em inglês simples, 4 a 6 frases curtas, primeira pessoa]
 
 Perfil real de Geovane (use como contexto, não force em toda resposta):
-- 30 anos oficial do Exército (1995–2025), coronel da reserva; chefiou o Departamento de Logística por 5 anos; recursos escassos de Comunicações e TI
-- Licenciatura em Matemática; MBA em IA para Negócios; MBAs em Pesquisa Operacional e em Finanças Corporativas EM ANDAMENTO
-- 3 artigos de Pesquisa Operacional apresentados no ENEGEP (out/2026)
-- Consultor independente; portfólio em Python com Pyomo, OR-Tools, Gurobi, PuLP, FastAPI, PostgreSQL e testes automatizados
-- Nunca trabalhou em empresa privada grande nem em equipe de desenvolvimento de software
+""" + FATOS + """
 
 Se vier um bloco RESPOSTA PREPARADA, ela é o roteiro do próprio Geovane: siga os fatos e a estrutura dela, em linguagem falada, sem acrescentar fato novo.
 
@@ -279,30 +309,7 @@ async def api_banco():
 
 
 # ───────────────────────── Perguntas surpresa (treino para o que não está no banco)
-FATOS = """FATOS VERIFICADOS DE GEOVANE (únicos permitidos; conferidos em documentos e no código em 26/11/2026):
-Trajetória
-- Oficial da Arma de Comunicações do Exército, formado pela AMAN, serviço de 11/02/1995 a 30/04/2025; coronel da reserva.
-- Chefe da Seção de Informática do Cmdo da 3ª Bda Inf Mtz a partir de fev/2021 (rede telefônica, página de internet).
-- Chefe da 4ª Seção (logística) no Comando de Comunicações e Guerra Eletrônica de 2017 a 2020; antes, adjunto da 4ª Seção na 13ª Bda.
-- Cursos: Estágio de Telemática (1999), Guerra Eletrônica para Oficiais (2010), Planejamento de Guerra Eletrônica (2015).
-- Consultor independente em otimização e IA desde 2023, sem CNPJ. Nunca trabalhou em empresa privada grande nem sustentou sistema em produção com usuários.
-Formação
-- Licenciatura em Matemática; MBA em IA para Negócios (concluído, 360 h).
-- EM ANDAMENTO: MBA em Pesquisa Operacional e Tomada de Decisão; MBA em Finanças Corporativas; Pós em Desenvolvimento de Aplicações Web.
-- 3 artigos de PO aprovados no ENEGEP 2026.
-Projetos (Python)
-- otimizacao-prescritiva: Holt-Winters → MILP de lot sizing capacitado (CLSP) em Pyomo; HiGHS padrão, Gurobi opcional; big-M ajustado pela demanda restante e capacidade; FastAPI; Docker; CI com cobertura mínima de 85%; ruff; vitrine Streamlit com Monte Carlo e tornado. SEM pip-audit no CI.
-- pyomo-portfolio: MILP de escala de pessoal (cobertura, competências, carga horária); src em loader/schemas/model/solver/reporter; solver GLPK padrão, troca por argumento (CBC, Gurobi, CPLEX); testes.
-- gurobi-sprint (público): scripts de estudo em Gurobi — LP, localização de instalações, transporte, designação, CVRP, heurísticas, case; usa TimeLimit e MIPGap.
-- motor-po-core: motor genérico solve(problema, dados) que classifica o problema e escolhe entre ~15 métodos (LP, mochila, EOQ, CPM, AHP, SAPEVO-M, TOPSIS, DEA, M/M/c, Monte Carlo, Markov, MICMAC, jogos); FastAPI + SDK; CI e teste de mutação. Sem Docker.
-- ps-filas-dashboard: M/M/c por Erlang C + simulação de eventos discretos com replicações; ranking SAPEVO-M/AHP; reproduz artigo do ENEGEP.
-- compras-po: app PESSOAL de compras de mercado; MILP em PuLP+CBC decide onde comprar cada item (preço + deslocamento); IA de visão lê panfleto.
-- incerteza-lab: exercícios do MBA de decisão sob incerteza (Maximax, Maximin, Laplace, Hurwicz, Savage, EVPI, Markowitz). NÃO é simulação de demanda.
-Nunca dizer
-- "liderei equipes de TI", "em produção com cliente", "tuning avançado de Gurobi", "HiGHS no pyomo-portfolio".
-- R$ 5,1M ou 15% como resultado real (são de caso de estudo com dados construídos).
-- Experiência profissional com Java ou C/C++ (não tem).
-Vaga: Python Data Science com Pesquisa Operacional, nível pleno, Compass UOL (grupo AI/R), cliente provável de logística (a prova técnica trouxe transporte, armazéns e assessoria de lucro/custo)."""
+
 
 GERADOR = """Você é o líder técnico que vai entrevistar Geovane para a vaga de Python Data Science com Pesquisa Operacional
 na Compass UOL. Gere perguntas NOVAS de entrevista com líder, em português, do jeito que um líder fala numa call.

@@ -381,6 +381,27 @@ BANCO = [
          palavras={},
          cuidado="Curto e direto. Sem justificar demais nem falar de hierarquia militar."),
 
+    dict(id="el8", grupo="Entrevista Líder", lingua="pt", titulo="Artigos aprovados no ENEGEP 2026",
+         pergunta_pt="Você citou artigos no ENEGEP. Do que tratam, e algum usa as ferramentas de PO e IA que a gente usa aqui?",
+         pergunta_en="You mentioned papers at ENEGEP. What are they about, and does any of them use the OR and AI tools we use here?",
+         resposta_en="",
+         resposta_pt=(
+             "São três, publicados nos anais do ENEGEP 2026 com DOI, na área de Pesquisa Operacional, com o professor "
+             "José Bezerra. O primeiro trata de pronto-socorro: teoria das filas M/M/c, simulação de eventos discretos e "
+             "o método multicritério SAPEVO-M para priorizar ações. O segundo propõe o FRAME-SCEN, um método de cenários "
+             "para consultoria a PMEs industriais que junta MICMAC, simulação de Monte Carlo e IA, aplicado a um caso "
+             "hipotético. No terceiro sou coautor: alocação de recursos do Plano Nacional de Educação com AHP, DEA, "
+             "programação por metas estocástica e Monte Carlo.\n\n"
+             "Sendo direto sobre a sua pergunta: nenhum deles usa Pyomo, Gurobi ou MILP de logística, e nenhum tem dado "
+             "real de cliente. O que eles mostram é modelagem sob incerteza e simulação. A stack que vocês usam, Pyomo com "
+             "HiGHS ou Gurobi, API e testes, está nos projetos do GitHub, como o otimizacao-prescritiva."),
+         pontos=["três artigos", "DOI", "M/M/c", "simulação de eventos discretos", "SAPEVO-M", "FRAME-SCEN",
+                 "Monte Carlo", "caso hipotético", "nenhum usa Pyomo", "otimizacao-prescritiva"],
+         palavras={},
+         cuidado=("Anais: https://www.abepro.org.br/publicacoes/index.asp?pesq=ok&ano=2026&area=&pchave=&autor=GEOVANE+VIRMECATI&categ= "
+                  "· Não citar 93% das metas / -0,7 p.p. do PIB / 84% do artigo do PNE como resultado real (instância em parte sintética). "
+                  "No PNE você é coautor, não primeiro autor. Não afirmar qual software foi usado nos artigos.")),
+
     dict(id="el7", grupo="Entrevista Líder", titulo="Perguntas para o líder",
          pergunta_pt="Como o time faz revisão de código e quem revisaria o meu no começo? O projeto já está em produção ou começa do zero? Onde Java entra, se entra? Qual o cliente e o setor?",
          pergunta_en="", resposta_en="",
