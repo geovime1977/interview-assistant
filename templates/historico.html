@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Histórico de treino</title>
+<style>
+  :root { --bg:#0f1218; --card:#171c25; --borda:#2a3140; --txt:#e6e9ef; --sub:#8b93a3; --azul:#4f7cff;
+          --verde:#2fbf71; --amar:#e0a526; --verm:#e5484d; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.5 system-ui, sans-serif; }
+  header { display:flex; gap:14px; align-items:center; padding:12px 22px; border-bottom:1px solid var(--borda); flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  header a { color:var(--azul); font-size:14px; }
+  main { max-width:960px; margin:0 auto; padding:20px; }
+  .filtros { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .filtros button { background:#2a2f3a; color:var(--txt); border:0; border-radius:16px; padding:6px 12px; cursor:pointer; font-size:14px; }
+  .filtros button.ativo { background:var(--azul); }
+  input[type=search] { flex:1; min-width:200px; background:#0f1218; color:var(--txt); border:1px solid var(--borda); border-radius:8px; padding:7px 10px; }
+  .reg { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:12px 16px; margin:10px 0; }
+  .meta { color:var(--sub); font-size:13px; }
+  .tipo { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; background:#243150; margin-right:6px; }
+  .perg { font-weight:600; margin:6px 0; }
+  .txt { white-space:pre-wrap; font-size:15px; color:#cfd6e4; }
+  details { margin-top:6px; } summary { cursor:pointer; color:var(--azul); font-size:14px; }
+  .forte { color:var(--verde); } .medio { color:var(--amar); } .fraco { color:var(--verm); }
+  .vazio { color:var(--sub); text-align:center; padding:40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📜 Histórico de treino</h1>
+  <span class="meta" id="contagem"></span>
+  <span style="margin-left:auto"></span>
+  <a href="/historico.md">⬇ Exportar (Markdown)</a>
+  <a href="/simulado">Simulado</a><a href="/banco">Banco</a><a href="/">Assistente</a>
+</header>
+<main>
+  <div class="filtros" id="filtros"></div>
+  <div class="filtros"><input type="search" id="busca" placeholder="Buscar em perguntas e respostas…"></div>
+  <div id="lista"><p class="vazio">Carregando…</p></div>
+</main>
+<script>
+const NOMES = { assistente: 'Assistente', treino: 'Treino no banco', simulado: 'Simulado', caso: 'Caso técnico' };
+let TODOS = [], filtro = '';
+const esc = s => (s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const limpa = s => (s || '').replace(/\*\*/g, '');
+
+function classe(sit) { return /forte/.test(sit) ? 'forte' : /médio/.test(sit) ? 'medio' : 'fraco'; }
+
+function render() {
+  const q = document.getElementById('busca').value.toLowerCase();
+  const itens = TODOS.filter(r => (!filtro || r.tipo === filtro) &&
+    (!q || JSON.stringify(r).toLowerCase().includes(q)));
+  document.getElementById('contagem').textContent = `${itens.length} de ${TODOS.length} registros`;
+  if (!itens.length) {
+    document.getElementById('lista').innerHTML = `<p class="vazio">${TODOS.length ? 'Nada com esse filtro.' : 'Ainda não há treinos salvos. Eles aparecem aqui a partir de agora.'}</p>`;
+    return;
+  }
+  document.getElementById('lista').innerHTML = itens.map(r => {
+    const titulo = r.titulo || r.cenario || '';
+    let h = `<div class="reg"><div class="meta"><span class="tipo">${esc(NOMES[r.tipo] || r.tipo)}</span>${esc(r.ts.replace('T', ' '))}${titulo ? ' · ' + esc(titulo) : ''}</div>`;
+    if (r.pergunta) h += `<div class="perg">${esc(r.pergunta)}</div>`;
+    if (r.pct !== undefined && r.pct !== null)
+      h += `<div class="meta"><span class="${classe(r.situacao || '')}">${esc(r.situacao || '')}</span> · ${r.pct}% dos pontos · ${r.tempo_s} s${r.faltou && r.faltou.length ? ' · faltou: ' + esc(r.faltou.join(', ')) : ''}</div>`;
+    if (r.resposta) h += r.tipo === 'assistente'
+      ? `<details><summary>Resposta gerada</summary><div class="txt">${esc(limpa(r.resposta))}</div></details>`
+      : `<div class="txt" style="margin-top:6px">${esc(r.resposta)}</div>`;
+    if (r.avaliacao) h += `<details><summary>Avaliação</summary><div class="txt">${esc(limpa(r.avaliacao))}</div></details>`;
+    return h + '</div>';
+  }).join('');
+}
+
+function montarFiltros() {
+  const tipos = [...new Set(TODOS.map(r => r.tipo))];
+  const el = document.getElementById('filtros');
+  el.innerHTML = '';
+  for (const [v, rot] of [['', 'Todos'], ...tipos.map(t => [t, NOMES[t] || t])]) {
+    const b = document.createElement('button');
+    b.textContent = rot; b.className = v === filtro ? 'ativo' : '';
+    b.onclick = () => { filtro = v; montarFiltros(); render(); };
+    el.appendChild(b);
+  }
+}
+
+document.getElementById('busca').oninput = render;
+fetch('/api/historico').then(r => r.json()).then(d => { TODOS = d; montarFiltros(); render(); });
+</script>
+</body>
+</html>

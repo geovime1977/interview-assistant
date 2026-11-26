@@ -45,7 +45,7 @@
 <header>
   <h1>🎯 Simulado · Caderno técnico</h1>
   <span style="margin-left:auto"></span>
-  <a href="/banco">Banco</a><a href="/">Assistente</a>
+  <a href="/historico">📜 Histórico</a><a href="/banco">Banco</a><a href="/">Assistente</a>
 </header>
 <main>
   <div id="inicio" class="bloco">
@@ -261,6 +261,9 @@ function terminar() {
   const fortes = resultados.filter(r => situacao(r)[0] === 'forte').length;
   const fracos = resultados.filter(r => situacao(r)[0] !== 'forte').map(r => r.it.id);
   localStorage.setItem('simulado_fracos', JSON.stringify(fracos));
+  fetch('/api/historico', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ itens: resultados.map(r => ({ item: r.it.id, titulo: r.it.titulo, pergunta: r.it.pergunta_pt,
+      resposta: r.texto, tempo_s: r.fala_s, pct: r.pct, faltou: r.faltou, situacao: situacao(r)[1] })) }) });
   const hist = JSON.parse(localStorage.getItem('simulado_hist') || '[]');
   hist.push({ data: new Date().toISOString().slice(0, 16), n: resultados.length, fortes });
   localStorage.setItem('simulado_hist', JSON.stringify(hist.slice(-20)));
@@ -281,7 +284,7 @@ async function avaliar(i) {
   const r = resultados[i], out = $('aval-' + i);
   out.textContent = 'Avaliando…';
   const resp = await fetch('/avaliar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                         body: JSON.stringify({ id: r.it.id, fala: r.texto }) });
+                                         body: JSON.stringify({ id: r.it.id, fala: r.texto, origem: 'simulado' }) });
   const leitor = resp.body.getReader(), dec = new TextDecoder(); let buf = '', total = '';
   while (true) {
     const { value, done } = await leitor.read(); if (done) break;
