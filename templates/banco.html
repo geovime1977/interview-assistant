@@ -94,53 +94,31 @@ function montarMenu() {
 function mostrar(it) {
   atual = it; falaFinal = ''; montarMenu();
   const pt = it.lingua === 'pt';
-  const resp = pt ? it.resposta_pt : it.resposta_en;
-  const temResp = !!resp;
-  const ehPergunta = it.grupo.startsWith('Perguntas');
+  const temResp = !!(pt ? it.resposta_pt : it.resposta_en);
   let h = `<div class="aviso">${esc(it.grupo)}</div>`;
   if (it.pergunta_en) h += `<div class="pergunta-en">${esc(it.pergunta_en)}</div>`;
   if (it.pergunta_pt) h += `<div class="pergunta-pt" style="${it.pergunta_en ? '' : 'font-size:22px;color:var(--txt)'}">${esc(it.pergunta_pt)}</div>`;
   h += '<div class="barra">';
   if (it.pergunta_en) h += `<button class="b sec" onclick="falar(atual.pergunta_en)">🔊 Ouvir em inglês</button>`;
-  if (pt) h += `<button class="b sec" onclick="falar(atual.pergunta_pt, 'pt-BR')">🔊 Ouvir a pergunta</button>`;
-  if (temResp) h += `<button class="b sec" id="btn-mostrar">👁 Mostrar resposta</button>
-                     <button class="b sec" onclick="falar(${pt ? "atual.resposta_pt, 'pt-BR'" : 'atual.resposta_en'})">🔊 Ouvir a resposta</button>
-                     <button class="b sec" onclick="speechSynthesis.cancel()">⏹</button>`;
+  if (it.pergunta_pt) h += `<button class="b sec" onclick="falar(atual.pergunta_pt, 'pt-BR')">🔊 Ouvir a pergunta</button>`;
   h += '</div>';
-  if ((it.cartao || []).length) {
-    h += `<div class="cartao">${it.cartao.map(l => { const k = l.indexOf(':');
-      return k > 0 ? `<b>${esc(l.slice(0, k + 1))}</b>${esc(l.slice(k + 1))}` : esc(l); }).join('<br>')}</div>`;
-  }
-  if (temResp && pt) {
-    h += `<div class="bloco"><div class="resposta oculta" id="resp">${esc(resp)}</div></div>`;
-  } else if (temResp) {
-    h += `<div class="bloco"><div class="resposta oculta" id="resp">${esc(it.resposta_en)}</div>
-          <div class="ref-pt"><b>Referência em português:</b> ${esc(it.resposta_pt)}</div></div>`;
-  } else if (it.resposta_pt) {
-    h += `<div class="bloco ref-pt">${esc(it.resposta_pt)}</div>`;
-  }
-  if (it.cuidado) h += `<div class="cuidado">⚠️ ${esc(it.cuidado)}</div>`;
-  const pal = Object.entries(it.palavras || {});
-  if (pal.length) h += `<div class="bloco"><b>Pronúncia</b><table>${pal.map(([p, f]) =>
-      `<tr><td><a href="#" onclick="falar('${p.replace(/'/g, "\\'")}');return false" style="color:var(--azul)">🔊 ${esc(p)}</a></td><td>${esc(f)}</td></tr>`).join('')}</table></div>`;
-  if (temResp && !ehPergunta) {
-    h += `<div class="bloco"><b>Treinar</b> — responda em voz alta, ${pt ? 'em português, olhando só o cartão (~60 s)' : 'em inglês, sem olhar a resposta'}.
-          <div class="barra"><button class="b" id="btn-gravar">🎙️ Começar a responder</button>
-          <button class="b sec" id="btn-avaliar" disabled>🧑‍🏫 Pedir avaliação</button></div>
-          <div id="fala"></div>
-          <div class="pontos" id="pontos">${(it.pontos || []).map(p => `<span>${esc(p)}</span>`).join('')}</div>
-          <div class="aviso">Os pontos ficam verdes quando aparecem na sua fala.</div>
+  if (temResp) {
+    h += `<div class="bloco"><b>Sua resposta</b>
+          <textarea id="minha-resp" rows="7" placeholder="Escreva aqui a sua resposta${pt ? '' : ' (em inglês)'}…"
+            style="width:100%;margin-top:8px;background:#0f1218;color:var(--txt);border:1px solid var(--borda);border-radius:8px;padding:10px;font:16px/1.5 system-ui"></textarea>
+          <div class="barra"><button class="b" id="btn-enviar">Enviar →</button></div>
           <div id="avaliacao" style="margin-top:10px"></div></div>`;
   }
   document.getElementById('conteudo').innerHTML = h;
-  const r = document.getElementById('resp');
-  const bm = document.getElementById('btn-mostrar');
-  if (bm) bm.onclick = () => r.classList.toggle('oculta');
-  if (r) r.onclick = () => r.classList.remove('oculta');
-  const bg = document.getElementById('btn-gravar');
-  if (bg) bg.onclick = alternarGravacao;
-  const ba = document.getElementById('btn-avaliar');
-  if (ba) ba.onclick = pedirAvaliacao;
+  const be = document.getElementById('btn-enviar');
+  if (be) be.onclick = () => {
+    falaFinal = document.getElementById('minha-resp').value.trim();
+    if (!falaFinal) return;
+    treinados.add(atual.id); localStorage.setItem('treinados', JSON.stringify([...treinados])); montarMenu();
+    pedirAvaliacao();
+  };
+  const ta = document.getElementById('minha-resp');
+  if (ta) ta.onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) be.click(); };
 }
 
 function conferirPontos(texto) {
