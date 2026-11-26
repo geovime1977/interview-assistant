@@ -61,6 +61,12 @@
     </p>
     <p><label><input type="checkbox" id="camera-on" checked> Câmera em miniatura (treinar olhar para a lente)</label></p>
     <p>
+      <b>Perguntas:</b>
+      <label><input type="radio" name="fonte" value="caderno" checked> Caderno técnico</label>
+      <label><input type="radio" name="fonte" value="lider"> Entrevista Líder</label>
+      <label><input type="radio" name="fonte" value="surpresa"> Surpresa (a IA cria perguntas que você nunca viu)</label>
+    </p>
+    <p>
       <label><input type="radio" name="modo" value="sem" checked> Sem cartão (como na entrevista)</label>
       <label><input type="radio" name="modo" value="com"> Com cartão (aprendendo)</label>
     </p>
@@ -134,16 +140,34 @@ function pontosCitados(item, texto) {
 }
 
 function cartaoHTML(item) {
+  if (!item.cartao || !item.cartao.length)
+    return item.resposta_pt ? esc(item.resposta_pt).replace(/\n/g, '<br>') : '';
   return item.cartao.map(l => { const k = l.indexOf(':');
     return k > 0 ? `<b>${esc(l.slice(0, k + 1))}</b>${esc(l.slice(k + 1))}` : esc(l); }).join('<br>');
 }
 
 async function comecar() {
-  const dados = await (await fetch('/api/banco')).json();
-  let itens = dados.itens.filter(i => i.grupo === 'Caderno técnico');
-  if ($('so-fracos').checked) {
+  const fonte = document.querySelector('[name=fonte]:checked').value;
+  let itens;
+  if (fonte === 'surpresa') {
+    const qtd = Math.min(+document.querySelector('[name=qtd]:checked').value, 8);
+    $('btn-comecar').disabled = true; $('btn-comecar').textContent = '⏳ Gerando perguntas novas…';
+    try {
+      const r = await (await fetch('/surpresa', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ qtd }) })).json();
+      if (r.error || !r.itens.length) return alert(r.error || 'Nenhuma pergunta gerada. Tente de novo.');
+      itens = r.itens;
+    } finally { $('btn-comecar').disabled = false; $('btn-comecar').textContent = '▶ Começar simulado'; }
+  } else {
+    const dados = await (await fetch('/api/banco')).json();
+    itens = fonte === 'lider'
+      ? dados.itens.filter(i => i.grupo === 'Entrevista Líder' && i.lingua === 'pt' && i.resposta_pt)
+      : dados.itens.filter(i => i.grupo === 'Caderno técnico');
+  }
+  if (fonte !== 'surpresa' && $('so-fracos').checked) {
     const fracos = JSON.parse(localStorage.getItem('simulado_fracos') || '[]');
-    if (fracos.length) itens = itens.filter(i => fracos.includes(i.id));
+    const so = itens.filter(i => fracos.includes(i.id));
+    if (so.length) itens = so;
   }
   itens.sort(() => Math.random() - 0.5);
   fila = itens.slice(0, +document.querySelector('[name=qtd]:checked').value);
@@ -284,7 +308,8 @@ async function avaliar(i) {
   const r = resultados[i], out = $('aval-' + i);
   out.textContent = 'Avaliando…';
   const resp = await fetch('/avaliar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                         body: JSON.stringify({ id: r.it.id, fala: r.texto, origem: 'simulado' }) });
+                                         body: JSON.stringify({ id: r.it.id, fala: r.texto, origem: 'simulado',
+                                                                pergunta: r.it.grupo === 'Surpresa' ? r.it.pergunta_pt : '' }) });
   const leitor = resp.body.getReader(), dec = new TextDecoder(); let buf = '', total = '';
   while (true) {
     const { value, done } = await leitor.read(); if (done) break;
