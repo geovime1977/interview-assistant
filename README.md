@@ -20,8 +20,8 @@ Python · FastAPI · OpenAI GPT-4o · Uvicorn · Web Speech API
 git clone https://github.com/geovime1977/interview-assistant.git
 cd interview-assistant
 uv venv && uv pip install -r requirements.txt
-export IA_PROVIDER=openai
-export OPENAI_API_KEY=sk-...
+cp .env.example .env
+# Abra .env e substitua o valor de exemplo pela sua chave da OpenAI.
 ```
 
 ## Como rodar

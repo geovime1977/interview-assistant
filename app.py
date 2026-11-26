@@ -12,6 +12,9 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).with_name(".env"))
 
 app = FastAPI()
 # OpenAI é o provedor padrão; Claude fica como alternativa e fallback via Claude Code CLI.
