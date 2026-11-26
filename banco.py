@@ -288,6 +288,105 @@ BANCO = [
          pontos=["property tests", "not just checking that it ran", "coverage", "assertions"],
          palavras={"fixtures": "FÍKS-tchârz", "assertions": "â-SÂR-shânz"}, cuidado=""),
 
+    # ───────────────────────── ENTREVISTA LÍDER (português; conferido no código dos repositórios em 26/11/2026)
+    dict(id="el1", grupo="Entrevista Líder", lingua="pt", titulo="Pitch de abertura (1min30)",
+         pergunta_pt="Para começar, me fala um pouco de você e da sua trajetória.",
+         pergunta_en="To start, tell me a bit about yourself and your background.",
+         resposta_en="",
+         resposta_pt=(
+             "Obrigado pela conversa. Sou o Geovane. Trabalho com Pesquisa Operacional e ciência de dados em Python: pego um "
+             "problema de negócio, escrevo o modelo de otimização e entrego como software testado.\n\n"
+             "Foram 30 anos como oficial de Comunicações do Exército, formado pela AMAN, até coronel. Chefiei a Seção de "
+             "Informática de uma brigada e, por anos, a 4ª Seção, que cuida da logística: transporte, suprimento, recurso "
+             "limitado e prazo fixo. É PO na prática, antes de eu conhecer o nome.\n\n"
+             "Desde 2023 trabalho como consultor independente em otimização e IA. Concluí um MBA em IA para Negócios, faço o "
+             "MBA em Pesquisa Operacional e uma pós em Desenvolvimento Web, e tive três artigos aprovados no ENEGEP 2026.\n\n"
+             "Meu projeto mais completo prevê a demanda e decide a produção com um MILP em Pyomo, resolvido com HiGHS ou Gurobi, "
+             "servido como API em contêiner, com testes e CI. O que me atrai nesta vaga é justamente isso: levar o modelo do "
+             "problema do cliente até o software que ele usa. Se fizer sentido, mostro esse projeto."),
+         pontos=["Pesquisa Operacional", "software testado", "30 anos", "Seção de Informática", "logística",
+                 "consultor independente", "ENEGEP", "Pyomo", "HiGHS ou Gurobi", "do problema do cliente até o software"],
+         palavras={},
+         cuidado="Não dizer 'liderei equipes de TI' nem 'rodando em produção'. MBA de PO e pós Web em andamento. Terminar oferecendo mostrar o projeto."),
+
+    dict(id="el2", grupo="Entrevista Líder", lingua="pt", titulo="Arquitetura e produção (otimizacao-prescritiva)",
+         pergunta_pt="Como você organiza um projeto de otimização para ele não ficar preso num notebook?",
+         pergunta_en="How do you structure an optimization project so it does not stay stuck in a notebook?",
+         resposta_en="",
+         resposta_pt=(
+             "Separo em módulos. No otimizacao-prescritiva: previsão com Holt-Winters, modelo de lot sizing capacitado (CLSP) "
+             "em Pyomo, escolha do solver por variável de ambiente, HiGHS por padrão e Gurobi quando há licença, e uma API em "
+             "FastAPI. Os testes cobrem a validade do plano, o trade-off entre setup e estoque, a inviabilidade e a API, e o CI "
+             "exige 85% de cobertura. Roda em contêiner. Uma decisão de modelagem: o big-M de setup usa a demanda restante e a "
+             "capacidade do período, não uma constante, o que fortalece a relaxação linear."),
+         pontos=["módulos", "Holt-Winters", "Pyomo", "HiGHS", "Gurobi", "FastAPI", "testes", "CI", "contêiner", "big-M"],
+         palavras={},
+         cuidado="Não dizer que tem scan de dependências no CI (ainda não tem pip-audit) nem que está em produção com cliente."),
+
+    dict(id="el3", grupo="Entrevista Líder", lingua="pt", titulo="Stack e solvers (pyomo-portfolio + gurobi-sprint)",
+         pergunta_pt="Qual a sua experiência prática com Pyomo e Gurobi?",
+         pergunta_en="What is your hands-on experience with Pyomo and Gurobi?",
+         resposta_en="",
+         resposta_pt=(
+             "No pyomo-portfolio, o modelo de escala de pessoal, com cobertura de turnos, competências e carga horária, fica "
+             "separado do solver: o mesmo modelo roda com GLPK, CBC ou Gurobi trocando um argumento, e os dados passam por "
+             "schemas antes de entrar no modelo. No gurobi-sprint resolvi em Gurobi os problemas clássicos de logística: "
+             "localização de armazéns, transporte e roteirização com capacidade. Ali uso limite de tempo e gap de otimalidade "
+             "para equilibrar qualidade e tempo, e comparo com heurísticas."),
+         pontos=["escala de pessoal", "separado do solver", "GLPK", "CBC", "Gurobi", "schemas", "localização",
+                 "transporte", "roteirização", "gap"],
+         palavras={},
+         cuidado="Não dizer HiGHS no pyomo-portfolio nem 'tuning avançado de performance'. O gurobi-sprint é sprint de estudo."),
+
+    dict(id="el4", grupo="Entrevista Líder", lingua="pt", titulo="Negócio e redução de custo",
+         pergunta_pt="Como você traduz uma dor de negócio em modelo e ajuda o cliente a reduzir custo?",
+         pergunta_en="How do you turn a business problem into a model and help the client reduce cost?",
+         resposta_en="",
+         resposta_pt=(
+             "No otimizacao-prescritiva, o objetivo é o menor custo total de setup, produção e estoque, atendendo à demanda "
+             "prevista dentro da capacidade. Para o cliente, o resultado mais útil é mostrar quanto custa cada restrição: quanto "
+             "se ganha com mais capacidade ou com menos trocas de produto. Num projeto pessoal menor, o compras-po, o mesmo "
+             "raciocínio decide em quais mercados comprar, pesando preço contra custo de deslocamento. Na prática é um "
+             "problema de localização com custo fixo."),
+         pontos=["custo total", "setup", "estoque", "capacidade", "quanto custa cada restrição", "projeto pessoal",
+                 "localização com custo fixo"],
+         palavras={},
+         cuidado="compras-po é app pessoal de mercado: sem lotes mínimos, armazenagem ou prazos. Não citar R$ 5,1M nem 15% como resultado real."),
+
+    dict(id="el5", grupo="Entrevista Líder", lingua="pt", titulo="Incerteza e visualização",
+         pergunta_pt="Como você lida com incerteza, como demanda variável, e como apresenta o resultado para o negócio?",
+         pergunta_en="How do you deal with uncertainty, like variable demand, and how do you present results to the business?",
+         resposta_en="",
+         resposta_pt=(
+             "Quando a variabilidade importa, não confio só no modelo determinístico. No ps-filas-dashboard calculo a fila "
+             "M/M/c pela fórmula de Erlang C e confiro com simulação de eventos discretos em várias replicações. Na vitrine do "
+             "otimizacao-prescritiva uso Monte Carlo e gráfico de tornado para mostrar ao cliente quais incertezas mais mexem no "
+             "resultado. A entrega é um painel em Streamlit, não um número no terminal."),
+         pontos=["determinístico", "M/M/c", "Erlang C", "simulação de eventos discretos", "replicações", "Monte Carlo",
+                 "tornado", "Streamlit"],
+         palavras={},
+         cuidado="Não usar o incerteza-lab aqui: são exercícios de decisão sob incerteza do MBA, não simulação de demanda."),
+
+    dict(id="el6", grupo="Entrevista Líder", lingua="pt", titulo="Coronel numa vaga pleno",
+         pergunta_pt="Você foi coronel. Por que uma vaga de nível pleno? Não vai sentir falta de gerenciar?",
+         pergunta_en="You were a colonel. Why a mid-level role? Won't you miss managing people?",
+         resposta_en="",
+         resposta_pt=(
+             "Quero escrever o modelo e o código, e é isso que faço hoje: os commits, os testes e o CI estão no GitHub. "
+             "Gerenciei por muito tempo e isso me ajuda a entender o que o cliente precisa decidir, mas o que me move agora "
+             "é a parte técnica. Começar como pleno num time que já entrega otimização em escala é o jeito certo de aprender "
+             "o que ainda não sei, como sustentar um sistema em produção com usuários."),
+         pontos=["escrever o modelo e o código", "GitHub", "entender o que o cliente precisa decidir", "parte técnica",
+                 "aprender", "produção"],
+         palavras={},
+         cuidado="Curto e direto. Sem justificar demais nem falar de hierarquia militar."),
+
+    dict(id="el7", grupo="Entrevista Líder", titulo="Perguntas para o líder",
+         pergunta_pt="Como o time faz revisão de código e quem revisaria o meu no começo? O projeto já está em produção ou começa do zero? Onde Java entra, se entra? Qual o cliente e o setor?",
+         pergunta_en="", resposta_en="",
+         resposta_pt="Escolha duas. A do setor confirma a hipótese de logística (transporte e armazéns caíram na prova técnica).",
+         pontos=[], palavras={}, cuidado="Feche com uma pergunta, nunca com 'não tenho perguntas'."),
+
     # ───────────────────────── PERGUNTAS PARA A LETÍCIA (RH, em português)
     dict(id="le1", grupo="Perguntas para a Letícia", titulo="Inglês no projeto (a mais importante)",
          pergunta_pt="O projeto desta vaga tem reuniões em inglês desde o começo? O cliente é daqui ou de fora?",
@@ -343,4 +442,4 @@ from caderno import CADERNO, DICIONARIO, G as GRUPO_CADERNO, GD as GRUPO_DICIONA
 
 BANCO += CADERNO + DICIONARIO
 
-GRUPOS = ["RH", "Perfil", "Técnica", GRUPO_CADERNO, GRUPO_DICIONARIO, "Perguntas para a Letícia", "Perguntas ao entrevistador"]
+GRUPOS = ["RH", "Perfil", "Técnica", "Entrevista Líder", GRUPO_CADERNO, GRUPO_DICIONARIO, "Perguntas para a Letícia", "Perguntas ao entrevistador"]
