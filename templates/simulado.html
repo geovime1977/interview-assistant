@@ -35,6 +35,10 @@
   .forte { color:var(--verde); } .medio { color:var(--amar); } .fraco { color:var(--verm); }
   .aval { white-space:pre-wrap; font-size:14px; color:#cfd6e4; }
   .aviso { color:var(--sub); font-size:13px; }
+  #camera { position:fixed; left:50%; bottom:18px; margin-left:-110px; width:220px; border-radius:10px; border:2px solid var(--borda);
+            transform:scaleX(-1); display:none; background:#000; }
+  #camera.gravando { border-color:var(--verm); }
+  input[type=number] { width:70px; background:#0f1218; color:var(--txt); border:1px solid var(--borda); border-radius:6px; padding:4px; }
 </style>
 </head>
 <body>
@@ -45,8 +49,17 @@
 </header>
 <main>
   <div id="inicio" class="bloco">
-    <p>O app lê cada pergunta em voz alta e <b>abre o microfone sozinho</b> quando termina de falar. Responda como na entrevista.
-       A resposta encerra após <b>4 s de silêncio</b> (ou 90 s) e a próxima pergunta vem em seguida.</p>
+    <p><b>Ao vivo:</b> o app fala a pergunta, abre o microfone sozinho e encerra após 4 s de silêncio (máx. 90 s). Mãos livres.</p>
+    <p class="aviso">Texto + preparo + gravação: pergunta em texto, tempo para pensar, gravação até o limite, sem regravação.</p>
+    <p>
+      <label><input type="radio" name="formato" value="voz" checked> Entrevistador fala a pergunta (ao vivo, como a AI QuickMatch)</label>
+      <label><input type="radio" name="formato" value="gupy"> Texto + preparo + gravação</label>
+    </p>
+    <p id="cfg-gupy">
+      <label>Tempo para pensar <input type="number" id="prep-s" value="30" min="0" max="300"> s</label>
+      <label>Tempo máximo de resposta <input type="number" id="max-s" value="120" min="30" max="600"> s</label>
+    </p>
+    <p><label><input type="checkbox" id="camera-on" checked> Câmera em miniatura (treinar olhar para a lente)</label></p>
     <p>
       <label><input type="radio" name="modo" value="sem" checked> Sem cartão (como na entrevista)</label>
       <label><input type="radio" name="modo" value="com"> Com cartão (aprendendo)</label>
@@ -67,6 +80,7 @@
       <div class="estado" id="estado"></div>
       <div style="display:flex; align-items:center; gap:16px">
         <div class="relogio" id="relogio">0s</div>
+        <button class="b" id="btn-gravar" style="display:none">⏺ Começar a gravar agora</button>
         <button class="b sec" id="btn-terminei">⏹ Terminei</button>
         <button class="b sec" id="btn-pular">⏭ Pular</button>
         <button class="b verm" id="btn-parar">Encerrar simulado</button>
@@ -86,9 +100,11 @@
     </div>
   </div>
 </main>
+<video id="camera" autoplay muted playsinline></video>
 <script>
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const SILENCIO_MS = 4000, MAX_S = 90;
+const SILENCIO_MS = 4000;
+let MAX_S = 90, PREP_S = 0, gupy = false, timerPrep = null, streamCam = null;
 let fila = [], idx = 0, resultados = [], rec = null, ouvindo = false, falaFinal = '', parcial = '';
 let tInicio = 0, timerRelogio = null, timerSilencio = null, ativo = false;
 
@@ -131,6 +147,13 @@ async function comecar() {
   }
   itens.sort(() => Math.random() - 0.5);
   fila = itens.slice(0, +document.querySelector('[name=qtd]:checked').value);
+  gupy = document.querySelector('[name=formato]:checked').value === 'gupy';
+  PREP_S = gupy ? +$('prep-s').value : 0;
+  MAX_S = gupy ? +$('max-s').value : 90;
+  if ($('camera-on').checked && !streamCam) {
+    try { streamCam = await navigator.mediaDevices.getUserMedia({ video: true }); $('camera').srcObject = streamCam; } catch (_) {}
+  }
+  $('camera').style.display = streamCam ? 'block' : 'none';
   idx = 0; resultados = []; ativo = true;
   $('inicio').style.display = 'none'; $('resultado').style.display = 'none'; $('rodada').style.display = '';
   proxima();
@@ -147,9 +170,21 @@ async function proxima() {
   const comCartao = document.querySelector('[name=modo]:checked').value === 'com';
   $('cartao').style.display = comCartao ? '' : 'none';
   $('cartao').innerHTML = cartaoHTML(it);
-  $('estado').className = 'estado'; $('estado').textContent = '🔊 Lendo a pergunta…';
-  await falar(it.pergunta_pt);
-  if (ativo) ouvir(it);
+  if (!gupy) {
+    $('estado').className = 'estado'; $('estado').textContent = '🔊 Lendo a pergunta…';
+    await falar(it.pergunta_pt);
+    if (ativo) ouvir(it);
+    return;
+  }
+  // Gupy: pergunta só em texto, contagem de preparo, depois gravação automática
+  let resta = PREP_S;
+  const iniciar = () => { clearInterval(timerPrep); $('btn-gravar').style.display = 'none'; if (ativo) ouvir(it); };
+  $('btn-gravar').style.display = ''; $('btn-gravar').onclick = iniciar;
+  $('estado').className = 'estado'; $('estado').textContent = '⏳ Tempo para pensar — a gravação começa sozinha';
+  $('relogio').textContent = resta + 's';
+  clearInterval(timerPrep);
+  if (resta <= 0) return iniciar();
+  timerPrep = setInterval(() => { resta--; $('relogio').textContent = resta + 's'; if (resta <= 0) iniciar(); }, 1000);
 }
 
 function ouvir(it) {
@@ -165,31 +200,34 @@ function ouvir(it) {
     $('fala').textContent = fin + par;
     pontosCitados(it, fin + par).forEach((ok, i) => $('pontos').children[i].className = ok ? 'sim' : '');
     clearTimeout(timerSilencio);
-    timerSilencio = setTimeout(() => encerrarResposta(it), SILENCIO_MS);
+    if (!gupy) timerSilencio = setTimeout(() => encerrarResposta(it), SILENCIO_MS);
   };
   rec.onerror = e => { if (e.error !== 'no-speech' && e.error !== 'aborted') $('estado').textContent = 'Microfone: ' + e.error; };
   rec.onend = () => { if (ouvindo) { try { rec.start(); } catch (_) {} } };  // o Chrome encerra sozinho; reabre até a resposta acabar
   ouvindo = true; rec.start();
   tInicio = Date.now();
-  $('estado').className = 'estado ouvindo'; $('estado').textContent = '🎙️ Microfone aberto: pode responder';
+  $('estado').className = 'estado ouvindo';
+  $('estado').textContent = gupy ? `⏺ Gravando — máximo ${MAX_S}s, sem regravação` : '🎙️ Microfone aberto: pode responder';
+  $('camera').classList.add('gravando');
   clearInterval(timerRelogio);
   timerRelogio = setInterval(() => {
     const s = Math.round((Date.now() - tInicio) / 1000);
-    $('relogio').textContent = s + 's';
-    $('relogio').className = 'relogio' + (s > 70 ? ' longo' : '');
+    $('relogio').textContent = gupy ? `${s}s / ${MAX_S}s` : s + 's';
+    $('relogio').className = 'relogio' + (s > MAX_S * 0.8 ? ' longo' : '');
     if (s >= MAX_S) encerrarResposta(it);
   }, 250);
-  // Sem nenhuma fala em 10 s: encerra para não travar a rodada
-  timerSilencio = setTimeout(() => encerrarResposta(it), 10000);
+  // Sem nenhuma fala em 10 s: encerra para não travar a rodada (no Gupy vale o tempo máximo)
+  if (!gupy) timerSilencio = setTimeout(() => encerrarResposta(it), 10000);
 }
 
 function encerrarResposta(it, pulou = false, ultima = false) {
   if (!ouvindo) return;
   ouvindo = false;
   clearTimeout(timerSilencio); clearInterval(timerRelogio);
+  $('camera').classList.remove('gravando');
   try { rec.stop(); } catch (_) {}
   const texto = (falaFinal + ' ' + parcial).trim();
-  const fala_s = texto ? Math.max(0, Math.round((Date.now() - tInicio - (pulou ? 0 : SILENCIO_MS)) / 1000)) : 0;
+  const fala_s = texto ? Math.max(0, Math.round((Date.now() - tInicio - (pulou || gupy ? 0 : SILENCIO_MS)) / 1000)) : 0;
   const hits = pontosCitados(it, texto);
   const pct = it.pontos.length ? Math.round(100 * hits.filter(Boolean).length / it.pontos.length) : 0;
   resultados.push({ it, texto, fala_s, pct, faltou: it.pontos.filter((_, i) => !hits[i]), pulou });
@@ -200,14 +238,18 @@ function encerrarResposta(it, pulou = false, ultima = false) {
 
 function situacao(r) {
   if (r.pulou || !r.texto) return ['fraco', 'sem resposta'];
-  if (r.pct >= 70 && r.fala_s <= 75) return ['forte', 'forte'];
-  if (r.pct >= 40) return ['medio', r.fala_s > 75 ? 'médio · longa demais' : 'médio'];
+  const lim = gupy ? MAX_S - 5 : 75;
+  if (r.pct >= 70 && r.fala_s <= lim) return ['forte', 'forte'];
+  if (r.pct >= 40) return ['medio', r.fala_s > lim ? (gupy ? 'médio · bateu no limite' : 'médio · longa demais') : 'médio'];
   return ['fraco', 'fraco'];
 }
 
 function terminar() {
   if (ouvindo && fila[idx]) encerrarResposta(fila[idx], false, true);  // guarda a resposta em andamento
   ativo = false; ouvindo = false;
+  clearInterval(timerPrep); $('btn-gravar').style.display = 'none';
+  if (streamCam) { streamCam.getTracks().forEach(tr => tr.stop()); streamCam = null; }
+  $('camera').style.display = 'none';
   try { rec && rec.stop(); } catch (_) {}
   speechSynthesis.cancel();
   $('rodada').style.display = 'none'; $('resultado').style.display = '';
@@ -252,7 +294,7 @@ async function avaliar(i) {
 
 $('btn-comecar').onclick = () => { if (!SR) return alert('Use o Chrome.'); comecar(); };
 $('btn-terminei').onclick = () => fila[idx] && encerrarResposta(fila[idx]);
-$('btn-pular').onclick = () => { speechSynthesis.cancel(); if (ouvindo) encerrarResposta(fila[idx], true); else { idx++; proxima(); } };
+$('btn-pular').onclick = () => { speechSynthesis.cancel(); clearInterval(timerPrep); $('btn-gravar').style.display = 'none'; if (ouvindo) encerrarResposta(fila[idx], true); else { idx++; proxima(); } };
 $('btn-parar').onclick = terminar;
 $('btn-novo').onclick = () => { $('resultado').style.display = 'none'; $('inicio').style.display = ''; };
 speechSynthesis.getVoices();
