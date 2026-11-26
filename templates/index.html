@@ -555,7 +555,7 @@
 
   // ── Render streaming text into panels ─────────────────
   function renderPanels(text) {
-    const sections = { pt_q: '', en_q: '', pt_a: '', en_a: '', card: '' };
+    const sections = { pt_q: '', en_q: '', pt_a: '', en_a: '' };
     let current = null;
     const lines = text.split('\n');
 
@@ -564,13 +564,10 @@
       else if (line.startsWith('🇺🇸 QUESTION')) { current = 'en_q'; continue; }
       else if (line.startsWith('🇧🇷 RESPOSTA')) { current = 'pt_a'; continue; }
       else if (line.startsWith('🇺🇸 ANSWER'))   { current = 'en_a'; continue; }
-      else if (line.startsWith('📇 CARTÃO'))    { current = 'card'; continue; }
       else if (/^━+$/.test(line))               { current = null;   continue; }
       if (current) sections[current] += line + '\n';
     }
 
-    const linhasCard = sections.card.split('\n').map(s => s.trim()).filter(Boolean);
-    if (linhasCard.length) mostrarCartao({ titulo: 'Cartão gerado (fora do caderno)', linhas: linhasCard, cuidado: '' });
     ptQ.textContent = sections.pt_q.trim() || '';
     enQ.textContent = sections.en_q.trim() || '';
     ptA.textContent = sections.pt_a.trim() || '';

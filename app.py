@@ -69,19 +69,9 @@ SO_PORTUGUES = SYSTEM_PROMPT.split("Quando receber")[0] + """A entrevista é em 
 🇧🇷 PERGUNTA
 [a pergunta, corrigindo erros do reconhecimento de voz]
 
-📇 CARTÃO
-[4 linhas telegráficas no formato RÓTULO: termo | termo | termo — palavras-chave para olhar, sem frases]
-[ex.: 1. COMEÇO — DADOS: Auditar unidades | Demanda negativa | Capacidade zerada]
-
 🇧🇷 RESPOSTA
 [roteiro falado de ~60 s, primeira pessoa, em 3 blocos curtos separados por linha em branco:
  começo (o que faço primeiro e por quê), meio (método/técnica com os termos certos), fim (validação e tradução para o negócio)]
-
-Exemplo de cartão bem feito:
-MODELO: CLSP (MILP) — 3 prod × 4 sem
-DECISÕES: x(i,t) prod (cont) | I(i,t) est (cont) | y(i,t) setup (bin)
-OBJETIVO/RESTR.: Min custos | Balanço estoque | Capacidade | Ligação x ≤ M·y (big-M apertado)
-VALIDAÇÃO: Viabilidade total | Casos extremos (setup 0) | Benchmark heurística
 
 """ + SYSTEM_PROMPT[SYSTEM_PROMPT.index("Perfil real"):]
 
