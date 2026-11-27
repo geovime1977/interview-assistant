@@ -29,7 +29,8 @@
   .cartao b { color:#8fb4ff; }
   #fala { color:#cfd6e4; min-height:24px; }
   .pontos span { display:inline-block; padding:3px 9px; margin:3px; border-radius:12px; background:#2a2f3a; font-size:13px; }
-  .pontos span.sim { background:#1f4d33; color:#bff0d2; }
+  .pontos span.nao { background:#4d1f22; color:#f6c6c8; }
+.pontos span.sim { background:#1f4d33; color:#bff0d2; }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--borda); vertical-align:top; }
   .forte { color:var(--verde); } .medio { color:var(--amar); } .fraco { color:var(--verm); }
@@ -298,6 +299,12 @@ function terminar() {
   $('tabela').innerHTML = resultados.map((r, i) => {
     const [cls, rot] = situacao(r);
     return `<tr><td>${esc(r.it.titulo)}${r.faltou.length ? `<div class="aviso">Faltou: ${esc(r.faltou.join(', '))}</div>` : ''}
+      <details style="margin-top:6px"><summary class="aviso" style="cursor:pointer">👁 Ver resposta de referência e o que você falou</summary>
+        <div class="pontos">${r.it.pontos.map(p => `<span class="${r.faltou.includes(p) ? 'nao' : 'sim'}">${esc(p)}</span>`).join('')}</div>
+        ${cartaoHTML(r.it) ? `<div class="cartao">${cartaoHTML(r.it)}</div>` : '<div class="aviso">Pergunta sem roteiro pronto: use o botão IA para ver uma resposta melhor.</div>'}
+        ${r.it.cuidado ? `<div class="aviso" style="color:#f0d9a6">⚠ ${esc(r.it.cuidado)}</div>` : ''}
+        <div class="aviso" style="margin-top:6px"><b>Você falou:</b> ${esc(r.texto) || '—'}</div>
+      </details>
       <div class="aval" id="aval-${i}"></div></td>
       <td>${r.fala_s}s</td><td>${r.pct}%</td><td class="${cls}">${rot}</td>
       <td>${r.texto ? `<button class="b sec" onclick="avaliar(${i})">🧑‍🏫 IA</button>` : ''}</td></tr>`;

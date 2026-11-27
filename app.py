@@ -576,7 +576,7 @@ async def casar(request: Request):
 
 # ───────────────────────── Prova on-line do PET/COPPE (inglês + raciocínio lógico)
 
-from pet import GERADOR_PET, QUESTOES as PET_QUESTOES, TEXTOS as PET_TEXTOS
+from pet import GERADOR_PET, QUESTOES as PET_QUESTOES, TEMAS as PET_TEMAS, TEXTOS as PET_TEXTOS
 
 
 @app.get("/pet", response_class=HTMLResponse)
@@ -586,7 +586,7 @@ async def pagina_pet():
 
 @app.get("/api/pet")
 async def api_pet():
-    return {"textos": PET_TEXTOS, "questoes": PET_QUESTOES}
+    return {"textos": PET_TEXTOS, "questoes": PET_QUESTOES, "temas": PET_TEMAS}
 
 
 @app.post("/pet/gerar")
@@ -595,7 +595,7 @@ async def pet_gerar(request: Request):
     if modulo not in ("ingles", "logica"):
         return {"error": "módulo inválido"}
     try:
-        bruto = await asyncio.to_thread(ia_texto, GERADOR_PET.format(modulo=modulo), "Gere agora.")
+        bruto = await asyncio.to_thread(ia_texto, GERADOR_PET.format(modulo=modulo, temas=", ".join(PET_TEMAS)), "Gere agora.")
         dado = json.loads(bruto[bruto.index("{"):bruto.rindex("}") + 1])
     except (ValueError, RuntimeError) as e:
         return {"error": f"não consegui gerar: {str(e)[:200]}"}
@@ -604,11 +604,13 @@ async def pet_gerar(request: Request):
     for n, q in enumerate(dado.get("questoes", [])[:8], 1):
         op = [str(o) for o in q.get("opcoes", [])]
         c = str(q.get("correta", "")).strip().upper()[:1]
-        if len(op) != 5 or c not in "ABCDE" or not str(q.get("enunciado", "")).strip():
+        if len(op) != 5 or len(c) != 1 or c not in "ABCDE" or not str(q.get("enunciado", "")).strip():
             continue
         questoes.append(dict(id=f"ia{n}", modulo=modulo, texto="ia" if texto else None,
                              enunciado=str(q["enunciado"]), opcoes=op, correta="ABCDE".index(c),
-                             explicacao=str(q.get("explicacao", "")), gerada_ia=True))
+                             explicacao=str(q.get("explicacao", "")), gerada_ia=True,
+                             dica=str(q.get("dica", "")),
+                             tema=q.get("tema") if q.get("tema") in PET_TEMAS else ""))
     if not questoes:
         return {"error": "a IA não devolveu questões válidas; tente de novo"}
     return {"textos": {"ia": texto} if texto else {}, "questoes": questoes}

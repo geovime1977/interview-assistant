@@ -22,6 +22,12 @@
   .info{color:#94a3b8;font-size:14px}
   .tempo{font-variant-numeric:tabular-nums;font-size:18px}
   .ia{color:#fbbf24;font-size:13px}
+  .dica{margin-top:10px;padding:10px 12px;border-radius:8px;background:#3b2f0b;color:#fde68a;display:none}
+  .tema{color:#a5b4fc;font-size:13px}
+  .rev{background:#0b1220;border-radius:10px;padding:12px;margin:10px 0}
+  .rev .sua{color:#fca5a5}.rev .cer{color:#86efac}
+  table.diag{border-collapse:collapse;width:100%;margin:8px 0}
+  table.diag td,table.diag th{border-bottom:1px solid #334155;padding:6px 8px;text-align:left;vertical-align:top}
 </style>
 </head>
 <body>
@@ -49,15 +55,16 @@
     <div id="ia" class="ia"></div>
     <div id="enunciado" style="font-size:17px;margin:8px 0"></div>
     <div id="opcoes"></div>
+    <div class="dica" id="dica"></div>
     <div class="expl" id="expl"></div>
-    <div style="margin-top:12px"><button class="prim" id="prox" disabled>Próxima →</button></div>
+    <div style="margin-top:12px;display:flex;gap:10px"><button id="btnDica">💡 Dica</button><button class="prim" id="prox" disabled>Próxima →</button></div>
   </div>
 </div>
 
 <div class="caixa" id="fim" style="display:none;margin-top:18px"></div>
 
 <script>
-let banco = {textos:{}, questoes:[]}, fila = [], i = 0, acertos = 0, erros = [], inicio = 0, relogio = null, moduloAtual = "";
+let banco = {textos:{}, questoes:[], temas:{}}, fila = [], i = 0, acertos = 0, erros = [], respostas = [], dicaUsada = false, inicio = 0, relogio = null, moduloAtual = "";
 
 fetch("/api/pet").then(r => r.json()).then(d => banco = d);
 
@@ -74,7 +81,7 @@ function montar(questoes, textos){
 }
 
 function iniciar(questoes, textos, rotulo){
-  fila = questoes; i = 0; acertos = 0; erros = []; moduloAtual = rotulo;
+  fila = questoes; i = 0; acertos = 0; erros = []; respostas = []; moduloAtual = rotulo;
   banco.textosAtivos = textos;
   document.getElementById("fim").style.display = "none";
   document.getElementById("area").style.display = "grid";
@@ -102,6 +109,9 @@ function mostrar(){
     box.appendChild(b);
   });
   const e = document.getElementById("expl"); e.style.display = "none"; e.textContent = "";
+  const d = document.getElementById("dica"); d.style.display = "none"; d.textContent = "";
+  dicaUsada = false;
+  document.getElementById("btnDica").disabled = !q.dica && !q.tema;
   document.getElementById("prox").disabled = true;
   document.getElementById("placar").textContent = `${acertos} acerto(s)`;
 }
@@ -110,14 +120,31 @@ function responder(k){
   const q = fila[i], bots = document.querySelectorAll(".op");
   bots.forEach(b => b.disabled = true);
   bots[q.correta].classList.add("certa");
+  respostas.push({q, marcada:k, certo:k === q.correta, dica:dicaUsada});
   if (k === q.correta) acertos++;
-  else { bots[k].classList.add("errada"); erros.push({id:q.id, enunciado:q.enunciado.slice(0,120), marcada:"ABCDE"[k], correta:"ABCDE"[q.correta]}); }
+  else { bots[k].classList.add("errada"); erros.push({id:q.id, tema:q.tema||"", enunciado:q.enunciado.slice(0,120), marcada:"ABCDE"[k], correta:"ABCDE"[q.correta], dica:dicaUsada}); }
+  document.getElementById("btnDica").disabled = true;
   const e = document.getElementById("expl");
-  e.textContent = (k === q.correta ? "✅ Certo. " : `❌ Resposta: ${"ABCDE"[q.correta]}. `) + q.explicacao;
+  e.innerHTML = "";
+  const p1 = document.createElement("div");
+  p1.textContent = (k === q.correta ? "✅ Certo. " : `❌ Você marcou ${"ABCDE"[k]}; a certa é ${"ABCDE"[q.correta]}) ${q.opcoes[q.correta]}. `) + q.explicacao;
+  e.appendChild(p1);
+  if (k !== q.correta && q.tema && banco.temas[q.tema]) {
+    const p2 = document.createElement("div"); p2.className = "tema"; p2.style.marginTop = "8px";
+    p2.textContent = `Tema: ${q.tema}. Como não errar: ${banco.temas[q.tema]}`;
+    e.appendChild(p2);
+  }
   e.style.display = "block";
   document.getElementById("prox").disabled = false;
   document.getElementById("placar").textContent = `${acertos} acerto(s)`;
 }
+
+document.getElementById("btnDica").onclick = () => {
+  const q = fila[i], d = document.getElementById("dica");
+  d.textContent = "💡 " + (q.dica || "") + (q.tema && banco.temas[q.tema] ? `  ·  Tema: ${q.tema}. ${banco.temas[q.tema]}` : "");
+  d.style.display = "block"; dicaUsada = true;
+  document.getElementById("btnDica").disabled = true;
+};
 
 document.getElementById("prox").onclick = () => { i++; if (i < fila.length) mostrar(); else terminar(); };
 
@@ -127,9 +154,25 @@ function terminar(){
   const pct = Math.round(100*acertos/fila.length);
   document.getElementById("area").style.display = "none";
   const f = document.getElementById("fim"); f.style.display = "block";
-  f.innerHTML = `<h3>${acertos}/${fila.length} (${pct}%) em ${min} min</h3>
-    <div class="info">O edital elimina com 50% ou menos (os itens 4.3.4 e Anexo II divergem no caso de exatamente 50%). Mire acima de 70% nos treinos.</div>
-    ${erros.length ? "<p>Revise:</p><ul>" + erros.map(x => `<li>${x.id}: marcou ${x.marcada}, certa ${x.correta}</li>`).join("") + "</ul>" : "<p>Sem erros.</p>"}`;
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const porTema = {};
+  respostas.forEach(r => { const t = r.q.tema || "outros"; porTema[t] = porTema[t] || {total:0, erros:0}; porTema[t].total++; if (!r.certo) porTema[t].erros++; });
+  const linhas = Object.entries(porTema).sort((a,b) => b[1].erros - a[1].erros || a[0].localeCompare(b[0]))
+    .map(([t,v]) => `<tr><td>${esc(t)}</td><td>${v.total - v.erros}/${v.total}</td><td class="info">${v.erros ? esc(banco.temas[t] || "") : "ok"}</td></tr>`).join("");
+  const comDica = respostas.filter(r => r.dica).length;
+  const revisao = respostas.filter(r => !r.certo).map(r => `<div class="rev">
+      <div class="tema">${esc(r.q.id)} · ${esc(r.q.tema || "")}${r.dica ? " · usou dica" : ""}</div>
+      <div style="margin:6px 0">${esc(r.q.enunciado)}</div>
+      <div class="sua">Você: ${"ABCDE"[r.marcada]}) ${esc(r.q.opcoes[r.marcada])}</div>
+      <div class="cer">Certa: ${"ABCDE"[r.q.correta]}) ${esc(r.q.opcoes[r.q.correta])}</div>
+      <div class="info" style="margin-top:6px">${esc(r.q.explicacao)}</div></div>`).join("");
+  f.innerHTML = `<h3>${acertos}/${fila.length} (${pct}%) em ${min} min${comDica ? ` · ${comDica} dica(s) usada(s)` : ""}</h3>
+    <div class="info">O edital elimina com 50% ou menos (os itens 4.3.4 e Anexo II divergem no caso de exatamente 50%). Mire acima de 70% nos treinos, sem dica.</div>
+    <h4>Onde você erra</h4>
+    <table class="diag"><tr><th>Tema</th><th>Acertos</th><th>Como estudar</th></tr>${linhas}</table>
+    ${revisao ? `<h4>Questões erradas</h4>${revisao}<button class="prim" id="refazer">Refazer só as erradas</button>` : "<p>Sem erros.</p>"}`;
+  const rb = document.getElementById("refazer");
+  if (rb) { const erradas = respostas.filter(r => !r.certo).map(r => r.q); rb.onclick = () => iniciar(erradas, banco.textosAtivos, moduloAtual + "-revisao"); }
   fetch("/pet/resultado", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({modulo: moduloAtual, acertos, total: fila.length, minutos: min, erros})});
 }

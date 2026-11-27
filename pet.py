@@ -198,6 +198,68 @@ QUESTOES = [
        "B", "Se toda rota de X passa pelo centro e nenhuma noturna passa, nenhuma rota de X é noturna."),
 ]
 
+TEMAS = {
+    "ideia central": "Leia o 1º e o último período do texto antes das alternativas. Descarte alternativas com 'always', 'all', 'never': exageram o texto.",
+    "informação literal": "Ache no texto a palavra-chave do enunciado e leia a frase inteira. A resposta certa costuma ser paráfrase dessa frase.",
+    "inferência": "A resposta não está escrita, mas tem que ser sustentada por uma frase do texto. Se precisar de informação de fora, está errada.",
+    "vocabulário": "Substitua a palavra pela alternativa na frase original e veja se o sentido se mantém. Desconfie de falsos cognatos.",
+    "conectivos e referência": "Contraste: however, although, but. Causa: because, since, due to. Conclusão: thus, therefore. Pronome: volte à frase anterior e ache o substantivo.",
+    "texto científico": "Resumo de artigo segue objetivo → método → resultado → limitação. 'suggest', 'may', 'indicate' marcam interpretação, não fato.",
+    "pegadinha de NOT/EXCEPT": "Marque no enunciado o NOT. Confira cada alternativa no texto e elimine as que aparecem.",
+    "tempos verbais": "Murphy, units 7–21: since/for → present perfect; ontem/data fechada → past simple; hipótese → if + passado, would + verbo.",
+    "voz passiva": "Se o sujeito não faz a ação (o terminal é construído), use be + particípio no tempo pedido.",
+    "modais e formas verbais": "Depois de must, can, should, will vem verbo sem 'to'. Comparativo: adjetivo curto + -er; longo: more + adjetivo.",
+    "pronomes relativos": "who = pessoa; which = coisa (sempre em oração entre vírgulas); that = pessoa ou coisa, nunca entre vírgulas; whose = posse.",
+    "quantificadores": "Desenhe conjuntos (diagrama de Venn). 'Algum' só garante um elemento; 'todo' não garante que o conjunto tenha elementos.",
+    "negação": "¬(todo A é B) = algum A não é B. ¬(algum A é B) = nenhum A é B. ¬(P e Q) = ¬P ou ¬Q. ¬(P ou Q) = ¬P e ¬Q.",
+    "condicional": "P→Q equivale a ¬Q→¬P. Inválidos: afirmar o consequente (Q, logo P) e negar o antecedente (¬P, logo ¬Q). Necessário = consequente; suficiente = antecedente.",
+    "argumentação": "Fortalecer = afastar outra causa possível (grupo de comparação). Enfraquecer = mostrar outra causa ou que o efeito aconteceu sem a causa. Contradizer = um contraexemplo.",
+    "ordenação e verdade/mentira": "Escreva as posições numa linha e preencha primeiro as regras fixas (último, imediatamente depois). Em verdade/mentira, teste quais afirmações não podem ser verdadeiras juntas.",
+    "porcentagem": "Percentuais sucessivos multiplicam (1,1 × 0,9), não somam. 'X% de Y%' = multiplicação dos dois.",
+}
+
+_TEMA_DICA = {
+    "i1": ("ideia central", "Qual frase resume o texto inteiro, e não um detalhe dele?"),
+    "i2": ("informação literal", "Procure 'tonne-kilometre' no texto."),
+    "i3": ("conectivos e referência", "'However' liga duas ideias que se opõem ou se completam?"),
+    "i4": ("vocabulário", "O custo de transbordo faz a economia aumentar ou desaparecer?"),
+    "i5": ("inferência", "Releia a última frase e veja o que os 'investors' acham."),
+    "i6": ("informação literal", "A resposta está na segunda frase do texto."),
+    "i7": ("informação literal", "Ache 'limited range' e leia a frase até o fim: há um 'however' ali."),
+    "i8": ("conectivos e referência", "'Their' é plural: qual substantivo plural fecha a frase anterior?"),
+    "i9": ("informação literal", "Leia a última frase: o que o algoritmo passa a considerar?"),
+    "i10": ("pegadinha de NOT/EXCEPT", "Confira as quatro estratégias listadas depois de 'several strategies'."),
+    "i11": ("texto científico", "Procure o verbo 'estimate' e o que vem depois de 'with'."),
+    "i12": ("texto científico", "Atenção aos sinais: ônibus melhoraram ou pioraram? Queda maior ou menor no pico?"),
+    "i13": ("texto científico", "O que o verbo 'suggest' indica sobre o grau de certeza?"),
+    "i14": ("texto científico", "Ache 'limitations' e confira os números: quantos sensores?"),
+    "i15": ("vocabulário", "'Further' e 'farther' parecem iguais, mas um deles é distância."),
+    "g1": ("voz passiva", "O terminal faz a ação ou recebe a ação?"),
+    "g2": ("tempos verbais", "A segunda parte usa 'would': que condicional é essa?"),
+    "g3": ("tempos verbais", "'since' indica um período que chega até agora."),
+    "g4": ("modais e formas verbais", "O que vem depois de 'must'?"),
+    "g5": ("pronomes relativos", "'The study' é pessoa ou coisa? E a oração está entre vírgulas."),
+    "g6": ("modais e formas verbais", "'quiet' é adjetivo curto (uma sílaba e meia): -er ou more?"),
+    "l1": ("quantificadores", "Desenhe: o círculo 'terminal' fica dentro do círculo 'rodovia'. Onde fica o porto seco sem rodovia?"),
+    "l2": ("negação", "Para negar 'todos', basta um caso contrário."),
+    "l3": ("condicional", "Se P então Q. Aconteceu não-Q. O que se conclui sobre P?"),
+    "l4": ("condicional", "A entrega pode falhar por outro motivo além do atraso?"),
+    "l5": ("condicional", "Inverta e negue os dois lados."),
+    "l6": ("negação", "Negação de 'e' vira 'ou', com as duas partes negadas."),
+    "l7": ("argumentação", "Só um caso do grupo 'manhã' fora da regra derruba o relatório."),
+    "l8": ("argumentação", "Qual alternativa descarta outra explicação para a queda do fluxo?"),
+    "l9": ("argumentação", "Se a queda aconteceu também onde não houve cobrança, o que isso diz sobre a causa?"),
+    "l10": ("ordenação e verdade/mentira", "Comece por E (último) e pelo par fixo A-B."),
+    "l11": ("porcentagem", "Calcule em duas etapas: primeiro +10%, depois −10% sobre o novo valor."),
+    "l12": ("condicional", "'Necessário' fica do lado do 'então': dirigir carreta → ?"),
+    "l13": ("ordenação e verdade/mentira", "I e II podem ser verdadeiras ao mesmo tempo?"),
+    "l14": ("porcentagem", "25% de 60% é multiplicação."),
+    "l15": ("quantificadores", "Desenhe 'rotas de X' dentro de 'passam pelo centro', e 'noturnas' fora dele."),
+}
+
+for _q_ in QUESTOES:
+    _q_["tema"], _q_["dica"] = _TEMA_DICA[_q_["id"]]
+
 GERADOR_PET = """Você elabora questões objetivas para a prova de seleção do mestrado em Engenharia de Transportes (PET/COPPE/UFRJ).
 Módulo pedido: {modulo}.
 - ingles: escreva UM texto original de 150 a 200 palavras, estilo artigo ou relatório técnico de transportes, logística ou mobilidade,
@@ -206,5 +268,6 @@ Módulo pedido: {modulo}.
   (negação, condicional, contrapositiva, falácias, quantificadores, fortalecer/enfraquecer argumento, ordenação, porcentagem).
 Regras: 5 alternativas por questão, exatamente uma correta, distratores plausíveis; explicação curta em português;
 confira cada gabarito antes de responder. Não use dados reais que você não tenha certeza; números do texto podem ser hipotéticos.
+Para cada questão, dê uma "dica" curta em português que oriente o raciocínio SEM revelar a resposta, e um "tema" escolhido desta lista: {temas}.
 Responda SOMENTE com JSON válido:
-{{"texto": "... ou null", "questoes": [{{"enunciado": "...", "opcoes": ["...","...","...","...","..."], "correta": "A", "explicacao": "..."}}]}}"""
+{{"texto": "... ou null", "questoes": [{{"enunciado": "...", "opcoes": ["...","...","...","...","..."], "correta": "A", "explicacao": "...", "dica": "...", "tema": "..."}}]}}"""

@@ -107,7 +107,11 @@ function mostrar(it) {
     h += `<div class="bloco"><b>Sua resposta</b>
           <textarea id="minha-resp" rows="7" placeholder="Escreva aqui a sua resposta${pt ? '' : ' (em inglês)'}…"
             style="width:100%;margin-top:8px;background:#0f1218;color:var(--txt);border:1px solid var(--borda);border-radius:8px;padding:10px;font:16px/1.5 system-ui"></textarea>
-          <div class="barra"><button class="b" id="btn-enviar">Enviar →</button></div>
+          <div class="barra"><button class="b" id="btn-enviar">Enviar →</button>
+            <button class="b sec" id="btn-dica">💡 Dica</button>
+            <button class="b sec" id="btn-ver">👁 Ver resposta</button></div>
+          <div id="dica" class="bloco" style="display:none"></div>
+          <div id="referencia" class="bloco" style="display:none"></div>
           <div id="avaliacao" style="margin-top:10px"></div></div>`;
   }
   document.getElementById('conteudo').innerHTML = h;
@@ -116,10 +120,37 @@ function mostrar(it) {
     falaFinal = document.getElementById('minha-resp').value.trim();
     if (!falaFinal) return;
     treinados.add(atual.id); localStorage.setItem('treinados', JSON.stringify([...treinados])); montarMenu();
+    mostrarReferencia(falaFinal);
     pedirAvaliacao();
   };
+  const bd = document.getElementById('btn-dica');
+  if (bd) bd.onclick = () => { mostrarDica(); bd.disabled = true; };
+  const bv = document.getElementById('btn-ver');
+  if (bv) bv.onclick = () => mostrarReferencia(document.getElementById('minha-resp').value);
   const ta = document.getElementById('minha-resp');
   if (ta) ta.onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) be.click(); };
+}
+
+function mostrarDica() {
+  const it = atual, d = document.getElementById('dica');
+  let h = '<b>💡 Dica</b>';
+  if (it.pontos && it.pontos.length) h += `<div class="aviso" style="margin-top:6px">Uma boa resposta cita:</div><div class="pontos">${it.pontos.map(p => `<span>${esc(p)}</span>`).join('')}</div>`;
+  if (it.cartao && it.cartao.length) h += `<div class="cartao">${it.cartao.map(l => { const k = l.indexOf(':'); return k > 0 ? `<b>${esc(l.slice(0, k + 1))}</b>${esc(l.slice(k + 1))}` : esc(l); }).join('<br>')}</div>`;
+  if (it.cuidado) h += `<div class="cuidado" style="margin-top:8px">${esc(it.cuidado)}</div>`;
+  if (h === '<b>💡 Dica</b>') h += '<div class="aviso">Sem dica cadastrada: use 👁 Ver resposta.</div>';
+  d.innerHTML = h; d.style.display = '';
+}
+
+function mostrarReferencia(texto) {
+  const it = atual, pt = it.lingua === 'pt', r = document.getElementById('referencia');
+  let h = '<b>Resposta de referência</b>';
+  if (it.pontos && it.pontos.length) h += `<div class="aviso" style="margin-top:6px">Pontos-chave (verde = você citou; vermelho = faltou):</div><div class="pontos" id="pontos">${it.pontos.map(p => `<span>${esc(p)}</span>`).join('')}</div>`;
+  h += `<div class="resposta" style="margin-top:8px">${esc(pt ? it.resposta_pt : it.resposta_en)}</div>`;
+  if (!pt && it.resposta_pt) h += `<div class="ref-pt">${esc(it.resposta_pt)}</div>`;
+  if (it.palavras) h += `<table style="margin-top:8px">${Object.entries(it.palavras).map(([w, f]) => `<tr><td>${esc(w)}</td><td>${esc(f)}</td></tr>`).join('')}</table>`;
+  if (it.cuidado) h += `<div class="cuidado" style="margin-top:8px">${esc(it.cuidado)}</div>`;
+  r.innerHTML = h; r.style.display = '';
+  if (texto && texto.trim()) conferirPontos(texto);
 }
 
 function conferirPontos(texto) {
