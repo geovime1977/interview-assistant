@@ -10,6 +10,7 @@ import re
 import subprocess
 import tempfile
 import unicodedata
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -123,11 +124,13 @@ from datetime import datetime
 HIST = Path(__file__).parent / "historico.jsonl"
 
 
-def registrar(tipo: str, **campos):
+def registrar(tipo: str, **campos) -> str:
     """Guarda cada treino (pergunta, resposta, avaliação) numa linha JSON local. Fica só no Mac, fora do git."""
+    campos.setdefault("id", uuid.uuid4().hex[:10])
     linha = {"ts": datetime.now().isoformat(timespec="seconds"), "tipo": tipo, **campos}
     with HIST.open("a", encoding="utf-8") as f:
         f.write(json.dumps(linha, ensure_ascii=False) + "\n")
+    return campos["id"]
 
 
 def gravando(eventos, tipo: str, campo_texto: str, **base):
@@ -514,15 +517,39 @@ async def avaliar_caso(request: Request):
 
 
 def _ler_hist() -> list[dict]:
+    """Registros em ordem; as notas do usuário (tipo 'nota') viram o campo 'minha_versao' do registro que editam.
+
+    O arquivo é só acrescentado, nunca reescrito: a edição mais recente vale, as anteriores ficam guardadas.
+    """
     if not HIST.exists():
         return []
-    out = []
-    for linha in HIST.read_text(encoding="utf-8").splitlines():
+    out, notas = [], {}
+    for n, linha in enumerate(HIST.read_text(encoding="utf-8").splitlines()):
         try:
-            out.append(json.loads(linha))
+            r = json.loads(linha)
         except json.JSONDecodeError:
-            pass
+            continue
+        if r.get("tipo") == "nota":
+            notas[r.get("ref")] = r
+            continue
+        r.setdefault("id", f"L{n}")
+        out.append(r)
+    for r in out:
+        if r["id"] in notas:
+            r["minha_versao"] = notas[r["id"]].get("texto", "")
+            r["editado_em"] = notas[r["id"]]["ts"]
     return out
+
+
+@app.post("/api/historico/nota")
+async def salvar_nota(request: Request):
+    """Sua versão ou acréscimo a um registro do histórico (resposta do assistente, treino, simulado)."""
+    d = await request.json()
+    ref, texto = str(d.get("ref", "")).strip(), str(d.get("texto", "")).strip()
+    if not ref or not any(r["id"] == ref for r in _ler_hist()):
+        return {"error": "registro não encontrado"}
+    registrar("nota", ref=ref, texto=texto[:20000])
+    return {"ok": True}
 
 
 @app.post("/api/historico")
@@ -550,6 +577,7 @@ async def exportar_hist():
         if r.get("pct") is not None: md += [f"**Nota:** {r['pct']}% dos pontos · {r.get('tempo_s')} s · {r.get('situacao', '')}", ""]
         if r.get("faltou"): md += [f"**Faltou:** {', '.join(r['faltou'])}", ""]
         if r.get("avaliacao"): md += [f"**Avaliação:**\n\n{r['avaliacao']}", ""]
+        if r.get("minha_versao"): md += [f"**Minha versão:**\n\n{r['minha_versao']}", ""]
     return PlainTextResponse("\n".join(md), media_type="text/markdown; charset=utf-8",
                              headers={"Content-Disposition": "attachment; filename=historico-treino.md"})
 
@@ -639,7 +667,10 @@ async def stream(request: Request):
     item = casar_caderno(question)
     so_pt = data.get("lang", "pt-BR").startswith("pt")
 
+    reg_id = uuid.uuid4().hex[:10]
+
     def generate():
+        yield sse({"registro": reg_id})
         if not item:
             yield from ia_stream(SO_PORTUGUES if so_pt else SYSTEM_PROMPT, question)
             return
@@ -655,7 +686,7 @@ async def stream(request: Request):
         yield from ia_stream(SO_INGLES, texto)
 
     return StreamingResponse(
-        gravando(generate(), "assistente", "resposta", pergunta=question,
+        gravando(generate(), "assistente", "resposta", id=reg_id, pergunta=question,
                  cenario=item["titulo"] if item else ""),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},

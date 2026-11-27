@@ -66,6 +66,11 @@ function render() {
       ? `<details><summary>Resposta gerada</summary><div class="txt">${esc(limpa(r.resposta))}</div></details>`
       : `<div class="txt" style="margin-top:6px">${esc(r.resposta)}</div>`;
     if (r.avaliacao) h += `<details><summary>Avaliação</summary><div class="txt">${esc(limpa(r.avaliacao))}</div></details>`;
+    if (r.minha_versao) h += `<div class="txt" style="margin-top:8px;border-left:3px solid #4f8cff;padding-left:10px"><b>✏️ Minha versão</b> <span class="meta">(${esc((r.editado_em || '').replace('T', ' '))})</span>\n${esc(r.minha_versao)}</div>`;
+    h += `<div style="margin-top:6px"><button class="editar" data-id="${esc(r.id)}">✏️ ${r.minha_versao ? 'Editar minha versão' : 'Acrescentar / editar'}</button>
+      <div class="ed" id="ed-${esc(r.id)}" style="display:none;margin-top:6px">
+        <textarea rows="7" style="width:100%;box-sizing:border-box;background:#0b1220;color:inherit;border:1px solid #334155;border-radius:8px;padding:8px;font:14px/1.5 system-ui"></textarea>
+        <button class="salvar" data-id="${esc(r.id)}">💾 Salvar</button> <span class="meta st"></span></div></div>`;
     return h + '</div>';
   }).join('');
 }
@@ -81,6 +86,25 @@ function montarFiltros() {
     el.appendChild(b);
   }
 }
+
+document.getElementById('lista').onclick = async e => {
+  const id = e.target.dataset.id; if (!id) return;
+  const r = TODOS.find(x => x.id === id), box = document.getElementById('ed-' + id);
+  if (e.target.classList.contains('editar')) {
+    box.style.display = box.style.display === 'none' ? '' : 'none';
+    const ta = box.querySelector('textarea');
+    if (!ta.value) ta.value = r.minha_versao || limpa(r.resposta || '');
+    return;
+  }
+  if (e.target.classList.contains('salvar')) {
+    const texto = box.querySelector('textarea').value.trim(), st = box.querySelector('.st');
+    if (!texto) { st.textContent = 'Escreva algo antes de salvar.'; return; }
+    const res = await (await fetch('/api/historico/nota', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: id, texto }) })).json();
+    if (!res.ok) { st.textContent = '⚠ ' + (res.error || 'erro'); return; }
+    TODOS = await (await fetch('/api/historico')).json(); render();
+  }
+};
 
 document.getElementById('busca').oninput = render;
 fetch('/api/historico').then(r => r.json()).then(d => { TODOS = d; montarFiltros(); render(); });

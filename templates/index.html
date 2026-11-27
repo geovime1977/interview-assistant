@@ -343,6 +343,17 @@
 
 </div>
 
+<!-- Sua versão: edita ou acrescenta à resposta e guarda no histórico -->
+<div id="minha" style="display:none;margin:14px 0;padding:12px 16px;background:#111827;border:1px solid #334155;border-radius:10px">
+  <div style="font-weight:600;margin-bottom:6px">✏️ Minha versão <span style="font-weight:400;color:#64748b;font-size:13px">— edite a resposta ou acrescente o que faltou; fica no histórico junto com a resposta gerada</span></div>
+  <textarea id="minha-txt" rows="8" style="width:100%;box-sizing:border-box;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:10px;font:15px/1.5 system-ui"></textarea>
+  <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+    <button id="minha-salvar" style="background:#2563eb;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer">💾 Salvar no histórico</button>
+    <button id="minha-copiar" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:8px 14px;cursor:pointer">Começar da resposta sugerida</button>
+    <span id="minha-status" style="color:#64748b;font-size:13px"></span>
+  </div>
+</div>
+
 <script>
   const micBtn        = document.getElementById('mic-btn');
   const fallbackInput = document.getElementById('fallback-input');
@@ -493,7 +504,24 @@
   });
 
   // ── Send to backend ───────────────────────────────────
+  let registroAtual = null;
+  document.getElementById('minha-copiar').onclick = () => {
+    const pt = ptA.textContent.trim(), en = enA.textContent.trim();
+    document.getElementById('minha-txt').value = [pt, en].filter(Boolean).join('\n\n');
+  };
+  document.getElementById('minha-salvar').onclick = async () => {
+    const st = document.getElementById('minha-status');
+    const texto = document.getElementById('minha-txt').value.trim();
+    if (!registroAtual || !texto) { st.textContent = 'Escreva algo antes de salvar.'; return; }
+    st.textContent = 'Salvando…';
+    const r = await (await fetch('/api/historico/nota', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: registroAtual, texto }) })).json();
+    st.textContent = r.ok ? '✅ Salvo no histórico (salvar de novo substitui a versão anterior).' : '⚠ ' + (r.error || 'erro');
+  };
+
   function sendQuestion(question) {
+    registroAtual = null;
+    document.getElementById('minha').style.display = 'none';
     clearPanels();
     setStatus('<div class="spinner"></div> Preparando resposta…');
     sendBtn.disabled = true;
@@ -528,6 +556,7 @@
                 sendBtn.disabled = false;
                 return;
               }
+              if (obj.registro) { registroAtual = obj.registro; continue; }
               if (obj.cartao) { mostrarCartao(obj.cartao); continue; }
               if (obj.provedor) { document.getElementById('provedor').textContent = 'IA: ' + obj.provedor; continue; }
               if (obj.aviso) { document.getElementById('provedor').textContent = '⚠ ' + obj.aviso; continue; }
@@ -549,6 +578,11 @@
     function finalize() {
       setStatus('');
       sendBtn.disabled = false;
+      if (registroAtual) {
+        document.getElementById('minha').style.display = '';
+        document.getElementById('minha-txt').value = '';
+        document.getElementById('minha-status').textContent = '';
+      }
       enHint.style.display = enA.textContent.trim() ? '' : 'none';
     }
   }
