@@ -574,6 +574,54 @@ async def casar(request: Request):
             "texto": f"🇧🇷 PERGUNTA\n{item['pergunta_pt']}\n\n🇧🇷 RESPOSTA\n{item['resposta_pt']}\n\n"}
 
 
+# ───────────────────────── Prova on-line do PET/COPPE (inglês + raciocínio lógico)
+
+from pet import GERADOR_PET, QUESTOES as PET_QUESTOES, TEXTOS as PET_TEXTOS
+
+
+@app.get("/pet", response_class=HTMLResponse)
+async def pagina_pet():
+    return Path("templates/pet.html").read_text(encoding="utf-8")
+
+
+@app.get("/api/pet")
+async def api_pet():
+    return {"textos": PET_TEXTOS, "questoes": PET_QUESTOES}
+
+
+@app.post("/pet/gerar")
+async def pet_gerar(request: Request):
+    modulo = (await request.json()).get("modulo", "ingles")
+    if modulo not in ("ingles", "logica"):
+        return {"error": "módulo inválido"}
+    try:
+        bruto = await asyncio.to_thread(ia_texto, GERADOR_PET.format(modulo=modulo), "Gere agora.")
+        dado = json.loads(bruto[bruto.index("{"):bruto.rindex("}") + 1])
+    except (ValueError, RuntimeError) as e:
+        return {"error": f"não consegui gerar: {str(e)[:200]}"}
+    texto = dado.get("texto") if modulo == "ingles" else None
+    questoes = []
+    for n, q in enumerate(dado.get("questoes", [])[:8], 1):
+        op = [str(o) for o in q.get("opcoes", [])]
+        c = str(q.get("correta", "")).strip().upper()[:1]
+        if len(op) != 5 or c not in "ABCDE" or not str(q.get("enunciado", "")).strip():
+            continue
+        questoes.append(dict(id=f"ia{n}", modulo=modulo, texto="ia" if texto else None,
+                             enunciado=str(q["enunciado"]), opcoes=op, correta="ABCDE".index(c),
+                             explicacao=str(q.get("explicacao", "")), gerada_ia=True))
+    if not questoes:
+        return {"error": "a IA não devolveu questões válidas; tente de novo"}
+    return {"textos": {"ia": texto} if texto else {}, "questoes": questoes}
+
+
+@app.post("/pet/resultado")
+async def pet_resultado(request: Request):
+    d = await request.json()
+    registrar("pet", modulo=d.get("modulo"), acertos=d.get("acertos"), total=d.get("total"),
+              minutos=d.get("minutos"), erros=d.get("erros", [])[:40])
+    return {"ok": True}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return Path("templates/index.html").read_text(encoding="utf-8")

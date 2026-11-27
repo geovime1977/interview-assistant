@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Treino — Prova PET/COPPE</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:20px;line-height:1.5}
+  a{color:#60a5fa}
+  .topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+  button,select{background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:8px 14px;font-size:15px;cursor:pointer}
+  button.prim{background:#2563eb;border-color:#2563eb}
+  button:disabled{opacity:.5;cursor:default}
+  .grade{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:900px){.grade{grid-template-columns:1fr}}
+  .caixa{background:#1e293b;border-radius:12px;padding:18px}
+  .texto{font-family:Georgia,serif;font-size:16px;white-space:pre-wrap}
+  .op{display:block;width:100%;text-align:left;margin:8px 0;padding:10px 12px}
+  .op.certa{background:#14532d;border-color:#22c55e}
+  .op.errada{background:#7f1d1d;border-color:#ef4444}
+  .expl{margin-top:12px;padding:12px;border-radius:8px;background:#0b1220;display:none}
+  .info{color:#94a3b8;font-size:14px}
+  .tempo{font-variant-numeric:tabular-nums;font-size:18px}
+  .ia{color:#fbbf24;font-size:13px}
+</style>
+</head>
+<body>
+<div style="font-size:14px;margin-bottom:8px"><a href="/">← Assistente</a> · <a href="/historico">📜 Histórico</a></div>
+<h2 style="margin:4px 0">Treino — Prova on-line PET/COPPE (09/12, 9h–13h)</h2>
+<div class="info">Inglês: leitura de texto técnico ou científico. Raciocínio lógico: coerência de ideias. As duas são eliminatórias e não somam nota.</div>
+
+<div class="topo" style="margin-top:14px">
+  <select id="modulo">
+    <option value="ingles">Inglês (texto técnico + gramática)</option>
+    <option value="logica">Raciocínio lógico</option>
+    <option value="misto">Simulado misto</option>
+  </select>
+  <label class="info"><input type="checkbox" id="embaralhar"> embaralhar lógica</label>
+  <button class="prim" id="iniciar">Iniciar</button>
+  <button id="gerar">Gerar 5 questões novas (IA)</button>
+  <span class="tempo" id="tempo">00:00</span>
+  <span class="info" id="placar"></span>
+</div>
+
+<div class="grade" id="area" style="display:none">
+  <div class="caixa" id="painelTexto"><div class="info">Sem texto-base: questão independente.</div></div>
+  <div class="caixa">
+    <div class="info" id="pos"></div>
+    <div id="ia" class="ia"></div>
+    <div id="enunciado" style="font-size:17px;margin:8px 0"></div>
+    <div id="opcoes"></div>
+    <div class="expl" id="expl"></div>
+    <div style="margin-top:12px"><button class="prim" id="prox" disabled>Próxima →</button></div>
+  </div>
+</div>
+
+<div class="caixa" id="fim" style="display:none;margin-top:18px"></div>
+
+<script>
+let banco = {textos:{}, questoes:[]}, fila = [], i = 0, acertos = 0, erros = [], inicio = 0, relogio = null, moduloAtual = "";
+
+fetch("/api/pet").then(r => r.json()).then(d => banco = d);
+
+function embaralha(a){ for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]];} return a; }
+
+function montar(questoes, textos){
+  const m = document.getElementById("modulo").value;
+  let q = questoes.filter(x => m === "misto" || x.modulo === m);
+  if (document.getElementById("embaralhar").checked) {
+    const log = embaralha(q.filter(x => x.modulo === "logica"));
+    q = q.filter(x => x.modulo !== "logica").concat(log);
+  }
+  return q;
+}
+
+function iniciar(questoes, textos, rotulo){
+  fila = questoes; i = 0; acertos = 0; erros = []; moduloAtual = rotulo;
+  banco.textosAtivos = textos;
+  document.getElementById("fim").style.display = "none";
+  document.getElementById("area").style.display = "grid";
+  inicio = Date.now(); clearInterval(relogio);
+  relogio = setInterval(() => {
+    const s = Math.floor((Date.now()-inicio)/1000);
+    document.getElementById("tempo").textContent = String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+  }, 1000);
+  mostrar();
+}
+
+function mostrar(){
+  const q = fila[i];
+  document.getElementById("pos").textContent = `Questão ${i+1} de ${fila.length} · ${q.modulo === "ingles" ? "Inglês" : "Raciocínio lógico"}`;
+  document.getElementById("ia").textContent = q.gerada_ia ? "Gerada por IA: confira o gabarito pela explicação." : "";
+  const t = q.texto ? banco.textosAtivos[q.texto] : null;
+  document.getElementById("painelTexto").innerHTML = t ? `<div class="texto"></div>` : `<div class="info">Sem texto-base: questão independente.</div>`;
+  if (t) document.querySelector("#painelTexto .texto").textContent = t;
+  document.getElementById("enunciado").textContent = q.enunciado;
+  const box = document.getElementById("opcoes"); box.innerHTML = "";
+  q.opcoes.forEach((o, k) => {
+    const b = document.createElement("button");
+    b.className = "op"; b.textContent = "ABCDE"[k] + ") " + o;
+    b.onclick = () => responder(k);
+    box.appendChild(b);
+  });
+  const e = document.getElementById("expl"); e.style.display = "none"; e.textContent = "";
+  document.getElementById("prox").disabled = true;
+  document.getElementById("placar").textContent = `${acertos} acerto(s)`;
+}
+
+function responder(k){
+  const q = fila[i], bots = document.querySelectorAll(".op");
+  bots.forEach(b => b.disabled = true);
+  bots[q.correta].classList.add("certa");
+  if (k === q.correta) acertos++;
+  else { bots[k].classList.add("errada"); erros.push({id:q.id, enunciado:q.enunciado.slice(0,120), marcada:"ABCDE"[k], correta:"ABCDE"[q.correta]}); }
+  const e = document.getElementById("expl");
+  e.textContent = (k === q.correta ? "✅ Certo. " : `❌ Resposta: ${"ABCDE"[q.correta]}. `) + q.explicacao;
+  e.style.display = "block";
+  document.getElementById("prox").disabled = false;
+  document.getElementById("placar").textContent = `${acertos} acerto(s)`;
+}
+
+document.getElementById("prox").onclick = () => { i++; if (i < fila.length) mostrar(); else terminar(); };
+
+function terminar(){
+  clearInterval(relogio);
+  const min = Math.round((Date.now()-inicio)/60000);
+  const pct = Math.round(100*acertos/fila.length);
+  document.getElementById("area").style.display = "none";
+  const f = document.getElementById("fim"); f.style.display = "block";
+  f.innerHTML = `<h3>${acertos}/${fila.length} (${pct}%) em ${min} min</h3>
+    <div class="info">O edital elimina com 50% ou menos (os itens 4.3.4 e Anexo II divergem no caso de exatamente 50%). Mire acima de 70% nos treinos.</div>
+    ${erros.length ? "<p>Revise:</p><ul>" + erros.map(x => `<li>${x.id}: marcou ${x.marcada}, certa ${x.correta}</li>`).join("") + "</ul>" : "<p>Sem erros.</p>"}`;
+  fetch("/pet/resultado", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({modulo: moduloAtual, acertos, total: fila.length, minutos: min, erros})});
+}
+
+document.getElementById("iniciar").onclick = () => {
+  const q = montar(banco.questoes, banco.textos);
+  iniciar(q, banco.textos, document.getElementById("modulo").value);
+};
+
+document.getElementById("gerar").onclick = async () => {
+  let m = document.getElementById("modulo").value; if (m === "misto") m = "ingles";
+  const b = document.getElementById("gerar"); b.disabled = true; b.textContent = "Gerando…";
+  try {
+    const r = await (await fetch("/pet/gerar", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({modulo:m})})).json();
+    if (r.error) alertaSemModal(r.error); else iniciar(r.questoes, r.textos, m + "-ia");
+  } finally { b.disabled = false; b.textContent = "Gerar 5 questões novas (IA)"; }
+};
+
+function alertaSemModal(msg){ document.getElementById("placar").textContent = "⚠ " + msg; }
+</script>
+</body>
+</html>
