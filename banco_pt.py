@@ -91,3 +91,34 @@ def aplicar(banco: list[dict]) -> None:
             b["resposta_pt"] = texto
         elif b["id"] in TITULOS_PT:
             b["titulo_pt"] = TITULOS_PT[b["id"]]
+
+
+# Palavras-chave para o assistente ao vivo achar a resposta do banco quando o caderno técnico não casa.
+# Mesma regra do caderno: 2 chaves, ou 1 chave de 6+ letras, e vantagem sobre o segundo colocado.
+CHAVES = {
+    "el1": ["trajetoria", "fala de voce", "fala um pouco de voce", "se apresentar", "apresente"],
+    "el2": ["notebook", "organiza um projeto", "organiza", "preso", "arquitetura", "em producao"],
+    "el3": ["gurobi", "experiencia pratica", "pyomo e gurobi"],
+    "el4": ["dor de negocio", "reduzir custo", "reducao de custo", "traduz", "negocio em modelo"],
+    "el5": ["incerteza", "demanda variavel", "apresenta o resultado", "visualizacao"],
+    "el6": ["coronel", "nivel pleno", "pleno", "gerenciar", "falta de gerenciar"],
+    "el8": ["enegep", "artigos", "artigo"],
+    "rh1": ["trouxe ate esta vaga", "trouxe", "conta sobre voce"],
+    "rh2": ["por que agora", "sente falta", "falta do exercito", "hierarquia", "por que dados"],
+    "rh3": ["ingles", "reuniao em ingles"],
+    "rh4": ["situacao dificil", "momento dificil", "star", "conflito"],
+    "rh5": ["conciliar", "mestrado", "mbas", "tempo integral", "estudos"],
+    "rh6": ["ponto fraco", "fraqueza", "ponto de melhoria", "defeito"],
+    "rh7": ["alguma pergunta", "pergunta para nos", "perguntas para nos", "alguma duvida"],
+    "pf1": ["5 1 milhoes", "milhoes", "economia", "como foi medido"],
+    "pf2": ["eixo estrategico", "sua empresa", "cnpj"],
+    "pf3": ["empresa privada", "empresa grande", "experiencia corporativa", "deveriamos contratar", "contratar voce"],
+    "tc1": ["virar software", "levou um modelo", "planta quimica", "dois solvers"],
+    "tc2": ["se paga", "investimento", "tir"],
+    "tc3": ["heuristica", "metodo exato"],
+    "tc6": ["or-tools", "or tools", "pyomo ou"],
+    "tc7": ["estequiometria"],
+    "tc8": ["vpl real", "nominal", "real e nominal"],
+    "tc9": ["big-m", "big m", "apertado"],
+    "tc10": ["testa", "testar", "testes"],
+}

@@ -107,6 +107,14 @@ SO_PORTUGUES = SYSTEM_PROMPT.split("Quando receber")[0] + """A entrevista é em 
 
 """ + SYSTEM_PROMPT[SYSTEM_PROMPT.index("Perfil real"):]
 
+COMPLEMENTO = SYSTEM_PROMPT.split("Quando receber")[0] + """A entrevista é em português. Você recebe a pergunta e um roteiro do banco
+de respostas dele, que está curto. Escreva o roteiro falado de ~60 s, primeira pessoa, em 3 blocos curtos separados por linha
+em branco (começo, meio, fim). Aproveite o roteiro do banco e complete com os fatos do perfil. Texto corrido, sem títulos, sem markdown.
+
+""" + SYSTEM_PROMPT[SYSTEM_PROMPT.index("Perfil real"):]
+
+RESPOSTA_CURTA = 300  # caracteres: abaixo disso a resposta do banco ganha, logo em seguida, o complemento da IA
+
 SO_INGLES = """Você recebe a pergunta de um entrevistador e o roteiro de resposta em português do candidato.
 Devolva EXATAMENTE neste formato, e nada mais:
 
@@ -261,7 +269,7 @@ def _norm(s: str) -> str:
     return " " + re.sub(r"[^a-z0-9/+-]+", " ", s) + " "
 
 
-def casar_caderno(pergunta: str):
+def casar_caderno(pergunta: str, itens=None):
     """Cenário do caderno que casa com a pergunta, por palavra-chave. Zero IA, roda antes do LLM.
 
     Exige 2 chaves, ou 1 chave de 6+ letras (termo técnico específico como 'benders'),
@@ -269,7 +277,7 @@ def casar_caderno(pergunta: str):
     """
     q = _norm(pergunta)
     notas = []
-    for it in CADERNO:
+    for it in itens if itens is not None else CADERNO:
         hits = [c for c in it["chaves"] if f" {_norm(c).strip()} " in q or (len(c) > 6 and _norm(c).strip() in q)]
         nota = len(hits) + 0.5 * sum(len(c) >= 6 for c in hits)
         notas.append((nota, len(hits), it))
@@ -279,6 +287,45 @@ def casar_caderno(pergunta: str):
     if nota >= 1.5 and nota > segundo:
         return melhor
     return None
+
+from banco_pt import CHAVES as _CHAVES_BANCO
+
+# Respostas do banco (Entrevista Líder, RH, Perfil, Técnica) que o assistente ao vivo também encontra.
+BANCO_CASAVEL = [dict(b, chaves=_CHAVES_BANCO[b["id"]]) for b in BANCO
+                 if b["id"] in _CHAVES_BANCO and b.get("resposta_pt")]
+
+
+_VAZIAS = set("para como voce qual quais sobre isso esse essa seus suas nossa nosso pelo pela entre quando onde porque tambem mais muito pouco fala conta".split())
+
+
+def _palavras(t: str) -> set[str]:
+    return {w for w in _norm(t).split() if len(w) >= 4 and w not in _VAZIAS}
+
+
+_PERGUNTAS = [(it, _palavras(it["pergunta_pt"])) for it in BANCO if it.get("resposta_pt") and it.get("pergunta_pt")]
+
+
+def casar_pergunta(pergunta: str):
+    """Pergunta quase igual a uma do banco (≥ 60% das palavras dela): esse item vence qualquer palavra-chave."""
+    q = _palavras(pergunta)
+    if len(q) < 2:
+        return None
+    nota, it = max(((len(q & p) / len(p), it) for it, p in _PERGUNTAS if p), key=lambda x: x[0], default=(0, None))
+    return it if nota >= 0.6 else None
+
+
+def casar_tudo(pergunta: str):
+    """Tudo local, sem IA (<1 ms): pergunta do banco quase igual → caderno por palavra-chave → banco por palavra-chave.
+    Só sem casamento a resposta vai para a IA."""
+    return casar_pergunta(pergunta) or casar_caderno(pergunta) or casar_caderno(pergunta, BANCO_CASAVEL)
+
+
+def cartao_de(item: dict) -> dict:
+    linhas = item.get("cartao") or []
+    if not linhas and item.get("pontos"):
+        linhas = [f"Pontos: {', '.join(item['pontos'])}"]
+    return {"titulo": item.get("titulo_pt") or item["titulo"], "linhas": linhas, "cuidado": item.get("cuidado", "")}
+
 
 COACH = """Você é um professor de inglês e de entrevista que treina Geovane para a entrevista da Compass UOL.
 Você recebe a pergunta, a resposta de referência (com os fatos reais dele) e a transcrição do que ele falou em inglês
@@ -595,10 +642,10 @@ async def simulado():
 @app.post("/casar")
 async def casar(request: Request):
     """Casamento parcial enquanto o entrevistador fala: só busca no caderno, sem IA."""
-    item = casar_caderno((await request.json()).get("q", ""))
+    item = casar_tudo((await request.json()).get("q", ""))
     if not item:
         return {}
-    return {"id": item["id"], "cartao": {"titulo": item["titulo"], "linhas": item["cartao"], "cuidado": item["cuidado"]},
+    return {"id": item["id"], "cartao": cartao_de(item),
             "texto": f"🇧🇷 PERGUNTA\n{item['pergunta_pt']}\n\n🇧🇷 RESPOSTA\n{item['resposta_pt']}\n\n"}
 
 
@@ -664,7 +711,7 @@ async def stream(request: Request):
     if not question:
         return {"error": "pergunta vazia"}
 
-    item = casar_caderno(question)
+    item = casar_tudo(question)
     so_pt = data.get("lang", "pt-BR").startswith("pt")
 
     reg_id = uuid.uuid4().hex[:10]
@@ -674,12 +721,16 @@ async def stream(request: Request):
         if not item:
             yield from ia_stream(SO_PORTUGUES if so_pt else SYSTEM_PROMPT, question)
             return
-        # Com cartão: o português é o roteiro do caderno (instantâneo); a IA só gera o inglês.
-        yield sse({"cartao": {"titulo": item["titulo"], "linhas": item["cartao"], "cuidado": item["cuidado"]}})
+        # Com cartão: o português é o roteiro do banco/caderno (instantâneo); a IA só gera o inglês.
+        yield sse({"cartao": cartao_de(item)})
         yield sse({"text": f"🇧🇷 PERGUNTA\n{item['pergunta_pt']}\n\n🇧🇷 RESPOSTA\n{item['resposta_pt']}\n\n"})
-        if so_pt:  # entrevista em português: o roteiro basta, zero token
-            yield sse({"provedor": "caderno (sem IA)"})
-            yield "data: [DONE]\n\n"
+        if so_pt:  # entrevista em português: roteiro do banco na hora; se for curto, a IA completa em seguida
+            if len(item["resposta_pt"]) >= RESPOSTA_CURTA:
+                yield sse({"provedor": "banco de respostas (sem IA)"})
+                yield "data: [DONE]\n\n"
+                return
+            yield sse({"text": "🤖 COMPLEMENTO DA IA (a resposta do banco é curta)\n"})
+            yield from ia_stream(COMPLEMENTO, f"PERGUNTA (dado):\n{question}\n\nROTEIRO DO BANCO (dado):\n{item['resposta_pt']}")
             return
         texto = (f"PERGUNTA DO ENTREVISTADOR (dado):\n{question}\n\n"
                  f"ROTEIRO EM PORTUGUÊS (dado):\n{item['resposta_pt']}")
