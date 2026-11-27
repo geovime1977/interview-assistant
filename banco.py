@@ -463,4 +463,8 @@ from caderno import CADERNO, DICIONARIO, G as GRUPO_CADERNO, GD as GRUPO_DICIONA
 
 BANCO += CADERNO + DICIONARIO
 
+from banco_pt import aplicar as _aplicar_pt
+
+_aplicar_pt(BANCO)
+
 GRUPOS = ["RH", "Perfil", "Técnica", "Entrevista Líder", GRUPO_CADERNO, GRUPO_DICIONARIO, "Perguntas para a Letícia", "Perguntas ao entrevistador"]
